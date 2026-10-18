@@ -1685,8 +1685,9 @@ function ajustarLienzo() {
     document.body.classList.toggle('vertical', vertical);
     const rect = canvas.getBoundingClientRect();
     escalaPantalla = Math.max(1, canvas.width / (rect.width || canvas.width));
-    // La bola mide al menos 34 px en la pantalla para que sea fácil tocarla
-    bola.radio = Math.round(Math.min(85, Math.max(55, 34 * escalaPantalla)));
+    // En pantallas pequeñas la bola mide unos 60 px de radio en la pantalla para que sea fácil tocarla
+    const tope = vertical ? 130 : 115;
+    bola.radio = esCompacto() ? Math.round(Math.min(tope, Math.max(55, 60 * escalaPantalla))) : 55;
 }
 
 window.addEventListener('resize', ajustarLienzo);
