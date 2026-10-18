@@ -315,3 +315,44 @@ canvas:active {
     background: linear-gradient(135deg, #eccc68, #ffa502);
     color: #382100;
 }
+
+/* Botón de pantalla completa */
+.btn-pantalla {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 34px;
+    height: 34px;
+    padding: 0;
+    border-radius: 50%;
+    border: 1px solid rgba(255, 255, 255, 0.18);
+    background: rgba(255, 255, 255, 0.08);
+    color: #fff;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.btn-pantalla:hover {
+    background: rgba(78, 84, 200, 0.6);
+    transform: scale(1.08);
+}
+
+.btn-pantalla:focus-visible {
+    outline: 2px solid #8f94fb;
+    outline-offset: 2px;
+}
+
+.btn-pantalla svg {
+    width: 18px;
+    height: 18px;
+}
+
+.btn-pantalla .icono-salir { display: none; }
+.btn-pantalla.activo .icono-entrar { display: none; }
+.btn-pantalla.activo .icono-salir { display: block; }
+
+/* En pantalla completa el juego crece para aprovechar la pantalla */
+body.pantalla-completa .hud-superior,
+body.pantalla-completa .juego-contenedor {
+    max-width: min(96vw, calc((100vh - 230px) * 16 / 9));
+}
