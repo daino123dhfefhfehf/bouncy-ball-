@@ -1686,7 +1686,7 @@ function ajustarLienzo() {
     const rect = canvas.getBoundingClientRect();
     escalaPantalla = Math.max(1, canvas.width / (rect.width || canvas.width));
     // En pantallas pequeñas la bola mide unos 60 px de radio en la pantalla para que sea fácil tocarla
-    const tope = vertical ? 130 : 115;
+    const tope = vertical ? 130 : 100;
     bola.radio = esCompacto() ? Math.round(Math.min(tope, Math.max(55, 60 * escalaPantalla))) : 55;
 }
 

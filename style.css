@@ -379,7 +379,7 @@ body.vertical canvas { aspect-ratio: 720 / 1180; }
 
 /* ===== Celulares y pantallas pequeñas ===== */
 @media (max-width: 700px), (max-height: 520px) {
-    body { --resto: 165px; padding: 8px; }
+    body { --resto: 160px; padding: 6px 4px; }
 
     .hud-superior {
         height: auto;
@@ -418,4 +418,45 @@ body.vertical canvas { aspect-ratio: 720 / 1180; }
 @media (max-height: 520px) {
     body { --resto: 152px; }
     .btn-juego { padding: 7px 14px; }
+}
+
+/* ===== Celular en horizontal: el juego ocupa casi toda la pantalla y los controles van al lado ===== */
+@media (max-height: 520px) and (orientation: landscape) {
+    body {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) 150px;
+        grid-template-rows: auto auto 1fr;
+        grid-template-areas:
+            "juego hud"
+            "juego mensaje"
+            "juego botones";
+        gap: 6px 8px;
+        align-items: start;
+        justify-content: stretch;
+        height: 100vh;
+        height: 100dvh;
+        padding: 6px;
+    }
+
+    .juego-contenedor { grid-area: juego; max-width: none; align-self: center; }
+
+    .hud-superior {
+        grid-area: hud;
+        max-width: none;
+        flex-direction: column;
+        align-items: stretch;
+        margin: 0;
+    }
+
+    .hud-externo { flex-wrap: wrap; justify-content: center; gap: 6px; padding: 6px 8px; font-size: 0.9rem; border-radius: 16px; }
+
+    #mensaje { grid-area: mensaje; margin: 0; height: 78px; font-size: 0.8rem; }
+
+    .botones-contenedor { grid-area: botones; flex-direction: column; margin: 0; }
+    .btn-juego { width: 100%; padding: 8px 10px; font-size: 0.8rem; }
+
+    canvas {
+        width: min(100%, calc((100vh - 12px) * 1.7778));
+        width: min(100%, calc((100dvh - 12px) * 1.7778));
+    }
 }
