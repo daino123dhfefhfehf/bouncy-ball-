@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>juego de la pelota boing boing the-supreme-edition</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+    <!-- OVERLAY PARA TRANSICIONES -->
+    <div id="transicionOverlay" class="transicion-overlay"></div>
+
+    <!-- CONTENEDOR DE CONTROLES SUPERIORES -->
+    <div class="hud-superior">
+        <button id="btnVolverMenu" class="btn-juego button-volver" style="display: none;">↩ Menú (Esc)</button>
+        <div id="comboContainer" class="combo-badge" style="display: none;">
+            🔥 COMBO <span id="comboCount">0</span>
+        </div>
+        <div class="hud-externo">
+            <span id="dificultadBadge" class="badge-dificultad dif-media">MEDIA</span>
+            <span>🪙 <span id="netCount">0</span> NETS</span>
+        </div>
+    </div>
+
+    <!-- ÁREA DE JUEGO PRINCIPAL -->
+    <div class="juego-contenedor">
+        <canvas id="miCanvas"></canvas>
+    </div>
+
+    <!-- MENSAJES Y ACCIONES INFERIORES -->
+    <div id="mensaje">Haz 5 clics en la pelota para comenzar</div>
+    
+    <div id="botonesMenuContainer" class="botones-contenedor">
+        <button id="btnTienda" class="btn-juego">🛒 Tienda</button>
+        <button id="btnLogros" class="btn-juego btn-logros-estilo">🏆 Logros</button>
+        <button id="btnReiniciar" class="btn-juego button-volver">🗑️ Reiniciar</button>
+    </div>
+
+    <!-- VENTANA MODAL DE DIFICULTAD -->
+    <div id="modalDificultad" class="modal-tienda">
+        <div class="modal-contenido modal-dificultad-contenido">
+            <h2 class="tienda-titulo">Selecciona la Dificultad</h2>
+            <p class="subtitulo-modal">Elige cómo quieres jugar antes de empezar:</p>
+            <div class="dificultades-grid">
+                <button class="btn-dificultad btn-facil" data-dif="facil">
+                    🟢 FÁCIL
+                    <span>Hacer clic fuera de la bola no tiene consecuencias.</span>
+                </button>
+                <button class="btn-dificultad btn-media" data-dif="media">
+                    🟡 MEDIA
+                    <span>La bola va un poco más rápida.</span>
+                </button>
+                <button class="btn-dificultad btn-dificil" data-dif="dificil">
+                    🔴 DIFÍCIL
+                    <span>¡No falles! Un clic fuera reinicia la racha.</span>
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- VENTANA MODAL DE LA TIENDA -->
+    <div id="modalTienda" class="modal-tienda">
+        <div class="modal-contenido">
+            <span id="cerrarTienda" class="cerrar-modal">&times;</span>
+            <h2 class="tienda-titulo">🛒 Tienda de Skins</h2>
+            <div id="skinsGrid" class="skins-grid"></div>
+        </div>
+    </div>
+
+    <!-- VENTANA MODAL DE LOGROS -->
+    <div id="modalLogros" class="modal-tienda">
+        <div class="modal-contenido">
+            <span id="cerrarLogros" class="cerrar-modal">&times;</span>
+            <h2 class="tienda-titulo">🏆 Logros y Desafíos</h2>
+            <div id="logrosGrid" class="skins-grid"></div>
+        </div>
+    </div>
+
+    <script src="script.js"></script>
+</body>
+</html>
