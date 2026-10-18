@@ -80,6 +80,7 @@ let hieloCongelado = 0;
 let magmaUltimoBonus = -1000;
 let imanAcumulador = 0;
 let dragonCarga = 0;
+let escalaPantalla = 1;
 let fantasmaUltimo = -10000;
 
 // VARIABLES ESPEJO 🪩
@@ -120,7 +121,7 @@ const HABILIDADES = {
     glitch: "Error crítico: 25% de probabilidad de que un clic dé x4 Nets.",
     estrella: "Deseo: todos tus clics ganan el doble y cada 5 clics +250 Nets.",
     tiempo: "Tiempo lento: la bola cae 40% más despacio y cada clic da +30 Nets.",
-    midas: "Toque de Midas: cada clic suma el 0.5% de tus Nets (máx. +1,000).",
+    midas: "Toque de Midas: cada clic da +75 Nets fijos y además el 0.5% de tus Nets (máx. +1,000).",
     ninja: "Evasión: los clics fallados no rompen tu racha en Difícil. Cada clic da +75 Nets.",
     dragon: "Aliento: cada rebote en pared o techo carga el aliento; con 5 cargas, tu clic da +1,000 Nets.",
     solar: "Supernova: cada 15 clics explota con +1,500 Nets.",
@@ -468,14 +469,14 @@ function actualizarFisicas() {
 
     if (pantallaActual === "menu") {
         tiempoMenuFlotar += 0.04;
-        bola.x = 640;
-        bola.y = 360 + Math.sin(tiempoMenuFlotar) * 20;
+        bola.x = canvas.width / 2;
+        bola.y = canvas.height / 2 + Math.sin(tiempoMenuFlotar) * 20;
         return;
     }
 
     if (pantallaActual === "juego" && bolaEnEsperaSaque) {
         tiempoMenuFlotar += 0.04;
-        bola.y = 220 + Math.sin(tiempoMenuFlotar) * 12;
+        bola.y = alturaEspera() + Math.sin(tiempoMenuFlotar) * 12;
         return;
     }
 
@@ -524,7 +525,7 @@ function actualizarFisicas() {
             if (tntRebotesSeguidos >= 5) {
                 activarCooldownTNT();
                 bolaEnEsperaSaque = true;
-                bola.vx = 0; bola.vy = 0; bola.y = 220;
+                bola.vx = 0; bola.vy = 0; bola.y = alturaEspera();
             } else {
                 bola.y = canvas.height - 10 - bola.radio;
                 bola.vy *= -1;
@@ -584,12 +585,12 @@ function actualizarFisicas() {
         } else {
             if (skinEquipada === 'minecraft' && tntEnCooldown) {
                 bolaEnEsperaSaque = true;
-                bola.vx = 0; bola.vy = 0; bola.y = 220;
+                bola.vx = 0; bola.vy = 0; bola.y = alturaEspera();
             } else {
                 clicksConsecutivos = 0;
                 if (comboCount) comboCount.textContent = 0;
                 bolaEnEsperaSaque = true;
-                bola.vx = 0; bola.vy = 0; bola.y = 220;
+                bola.vx = 0; bola.vy = 0; bola.y = alturaEspera();
                 if (mensaje) { 
                     mensaje.textContent = "💥 ¡Racha perdida! Clic en la bola para reintentar"; 
                     mensaje.style.color = "#ff4d4d"; 
@@ -812,7 +813,7 @@ function calcularGananciaClic() {
             g += 30;
             break;
         case 'midas':
-            g += Math.min(1000, Math.floor(nets * 0.005));
+            g += 75 + Math.min(1000, Math.floor(nets * 0.005));
             break;
         case 'ninja':
             g += 75;
@@ -860,7 +861,7 @@ function manejarAccion(clientX, clientY) {
     const clicY = (clientY - rect.top) * (canvas.height / rect.height);
     const distancia = Math.sqrt(Math.pow(clicX - bola.x, 2) + Math.pow(clicY - bola.y, 2));
 
-    if (distancia <= bola.radio + 15) { 
+    if (distancia <= bola.radio + 15 * escalaPantalla) { 
         if (pantallaActual === "menu") {
             clicksParaEmpezar--; 
             crearParticulas(clicX, clicY);
@@ -1383,8 +1384,9 @@ function dibujar() {
     }
 
     const etiqueta = (txt, col, fuente) => {
-        ctx.save(); ctx.fillStyle = col; ctx.font = fuente; ctx.textAlign = "center";
-        ctx.fillText(txt, bola.x, bola.y - bola.radio - 15); ctx.restore();
+        ctx.save(); ctx.fillStyle = col; ctx.textAlign = "center";
+        ctx.font = fuente.replace(/(\d+)px/, (m, n) => Math.round(n * escalaPantalla) + 'px');
+        ctx.fillText(txt, bola.x, bola.y - bola.radio - 12 * escalaPantalla); ctx.restore();
     };
     if (sActiva.tipo === "chicle") {
         etiqueta(chicleEnCooldown ? `⏳${chicleTiempoRestante}s` : `🫧${chicleUsosRestantes}/5`, "#ffffff", "bold 14px 'Segoe UI', Arial, sans-serif");
@@ -1408,7 +1410,14 @@ function dibujar() {
         ctx.textAlign = "center";
         ctx.shadowColor = "rgba(0,0,0,0.8)";
         ctx.shadowBlur = 10;
-        ctx.fillText("👇 HAZ 5 CLICS EN LA PELOTA PARA COMENZAR 👇", canvas.width / 2, bola.y - 80);
+        if (esCompacto()) {
+            const F = Math.min(60, Math.round(18 * escalaPantalla));
+            ctx.font = `900 ${F}px 'Segoe UI', Arial, sans-serif`;
+            ctx.fillText("EN LA PELOTA 👇", canvas.width / 2, bola.y - bola.radio - F * 0.6);
+            ctx.fillText("👇 HAZ 5 CLICS", canvas.width / 2, bola.y - bola.radio - F * 1.9);
+        } else {
+            ctx.fillText("👇 HAZ 5 CLICS EN LA PELOTA PARA COMENZAR 👇", canvas.width / 2, bola.y - 80);
+        }
         ctx.restore();
     }
 
@@ -1527,8 +1536,8 @@ document.querySelectorAll('.btn-dificultad').forEach(btn => {
             bolaEnEsperaSaque = true;
             clicksConsecutivos = 0;
             if (comboCount) comboCount.textContent = 0;
-            bola.x = 640;
-            bola.y = 220;
+            bola.x = canvas.width / 2;
+            bola.y = alturaEspera();
             
             if (botonesMenuContainer) botonesMenuContainer.style.display = "none";
             if (btnVolverMenu) btnVolverMenu.style.display = "inline-block";
@@ -1647,6 +1656,44 @@ if (canvas) {
 // ==========================================
 // BUCLE PRINCIPAL DEL JUEGO (GAME LOOP)
 // ==========================================
+// ==========================================
+// ADAPTACIÓN A MÓVILES
+// ==========================================
+function esCompacto() {
+    return window.innerWidth <= 1000 || window.innerHeight <= 520;
+}
+
+function alturaEspera() {
+    return Math.round(canvas.height * 0.3);
+}
+
+function ajustarLienzo() {
+    if (!canvas) return;
+    // En celulares en vertical el lienzo es alto; si no, es horizontal (16:9)
+    const vertical = window.innerHeight > window.innerWidth && window.innerWidth <= 820;
+    const ancho = vertical ? 720 : 1280;
+    const alto = vertical ? 1180 : 720;
+    if (canvas.width !== ancho || canvas.height !== alto) {
+        canvas.width = ancho;
+        canvas.height = alto;
+        bola.x = ancho / 2;
+        bola.y = alturaEspera();
+        bola.vx = 0;
+        bola.vy = 0;
+        if (pantallaActual === "juego") bolaEnEsperaSaque = true;
+    }
+    document.body.classList.toggle('vertical', vertical);
+    const rect = canvas.getBoundingClientRect();
+    escalaPantalla = Math.max(1, canvas.width / (rect.width || canvas.width));
+    // La bola mide al menos 34 px en la pantalla para que sea fácil tocarla
+    bola.radio = Math.round(Math.min(85, Math.max(55, 34 * escalaPantalla)));
+}
+
+window.addEventListener('resize', ajustarLienzo);
+window.addEventListener('orientationchange', () => setTimeout(ajustarLienzo, 200));
+document.addEventListener('fullscreenchange', () => setTimeout(ajustarLienzo, 150));
+document.addEventListener('webkitfullscreenchange', () => setTimeout(ajustarLienzo, 150));
+
 let errorLoopAvisado = false;
 function gameLoop() {
     try {
@@ -1659,5 +1706,6 @@ function gameLoop() {
     requestAnimationFrame(gameLoop);
 }
 
+ajustarLienzo();
 guardarProgreso();
 gameLoop();
