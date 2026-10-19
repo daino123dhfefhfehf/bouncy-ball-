@@ -202,7 +202,15 @@ const LOGROS = [
     { id: 'arco90', titulo: 'Más Allá del Arcoíris', desc: 'Llega al multiplicador x10 con el Unicornio Arcoíris', recompensa: 20000, check: () => skinEquipada === 'arcoiris' && clicksConsecutivos >= 90 },
     { id: 'fantasma10', titulo: 'Alma en Pena', desc: 'Reaparece 10 veces con la Bola Fantasma', recompensa: 15000, check: () => stat('reapariciones') >= 10 },
     { id: 'bigbang10', titulo: 'Creador de Universos', desc: 'Provoca 10 Big Bangs con el Cosmos Eterno', recompensa: 50000, check: () => stat('bigbangs') >= 10 },
-    { id: 'cosmosDueno', titulo: 'Dueño del Cosmos', desc: 'Desbloquea el Cosmos Eterno', recompensa: 100000, check: () => skinsDesbloqueadas.includes('cosmos') }
+    { id: 'cosmosDueno', titulo: 'Dueño del Cosmos', desc: 'Desbloquea el Cosmos Eterno', recompensa: 100000, check: () => skinsDesbloqueadas.includes('cosmos') },
+
+    // Modo Historia
+    { id: 'hist1', titulo: 'Aventurero', desc: 'Completa el primer capítulo del Modo Historia', recompensa: 1000, check: () => historiaProgreso.completados.length >= 1 },
+    { id: 'hist5', titulo: 'Héroe de Rebotia', desc: 'Completa 5 capítulos del Modo Historia', recompensa: 5000, check: () => historiaProgreso.completados.length >= 5 },
+    { id: 'histFin', titulo: 'Leyenda de Rebotia', desc: 'Completa todo el Modo Historia', recompensa: 30000, check: () => historiaProgreso.completados.length >= CAPITULOS.length },
+    { id: 'hist20', titulo: 'Explorador de Rebotia', desc: 'Completa 20 capítulos del Modo Historia', recompensa: 20000, check: () => historiaProgreso.completados.length >= 20 },
+    { id: 'jefes5', titulo: 'Cazajefes', desc: 'Derrota a 5 jefes del Modo Historia', recompensa: 15000, check: () => jefesDerrotados() >= 5 },
+    { id: 'jefesTodos', titulo: 'Rey de los Jefes', desc: 'Derrota a todos los jefes del Modo Historia', recompensa: 60000, check: () => jefesDerrotados() >= Object.keys(JEFES).length }
 ];
 
 let bola = {
@@ -506,9 +514,11 @@ function actualizarFisicas() {
     }
 
     let factorDificultad = dificultadActual === "media" ? 1.35 : (dificultadActual === "dificil" ? 1.6 : 1.0);
-    const gravedadActual = (bola.gravedadBase + (clicksConsecutivos * 0.015)) * factorDificultad * (skinEquipada === 'tiempo' ? 0.6 : 1);
+    const gravedadActual = (bola.gravedadBase + (clicksConsecutivos * 0.015)) * factorDificultad * (skinEquipada === 'tiempo' ? 0.6 : 1) * modH('gravedad', 1);
 
     bola.vy += gravedadActual;
+    const vientoHistoria = modH('viento', 0);
+    if (vientoHistoria) bola.vx += Math.sin(performance.now() / 1300) * vientoHistoria;
     bola.vy *= bola.friccion;
     bola.vx *= bola.friccion;
     bola.y += bola.vy;
@@ -595,6 +605,7 @@ function actualizarFisicas() {
                     mensaje.textContent = "💥 ¡Racha perdida! Clic en la bola para reintentar"; 
                     mensaje.style.color = "#ff4d4d"; 
                 }
+                historiaAlCaer();
             }
         }
     }
@@ -891,6 +902,7 @@ function manejarAccion(clientX, clientY) {
 
         clicksConsecutivos++; 
         sumarStat('clics');
+        if (historia.activa && !historia.terminado) historia.clics++;
         if (comboCount) comboCount.textContent = clicksConsecutivos;
         
         if (skinEquipada === 'goku') {
@@ -1340,6 +1352,7 @@ function dibujar() {
 
     ctx.fillStyle = colorFondoDinamico;
     ctx.fillRect(0, 0, canvas.width, canvas.height);
+    dibujarEscenaHistoria();
 
     ondasExplosion.forEach(o => {
         ctx.save();
@@ -1384,7 +1397,7 @@ function dibujar() {
     }
 
     const etiqueta = (txt, col, fuente) => {
-        ctx.save(); ctx.fillStyle = col; ctx.textAlign = "center";
+        ctx.save(); ctx.fillStyle = col; ctx.textAlign = "center"; ctx.shadowColor = 'rgba(0,0,0,0.75)'; ctx.shadowBlur = 4;
         ctx.font = fuente.replace(/(\d+)px/, (m, n) => Math.round(n * escalaPantalla) + 'px');
         ctx.fillText(txt, bola.x, bola.y - bola.radio - 12 * escalaPantalla); ctx.restore();
     };
@@ -1509,6 +1522,9 @@ function regresarAlMenu() {
     ejecutarTransicion(() => {
         pantallaActual = "menu";
         clicksParaEmpezar = 5;
+        historia.activa = false;
+        radioMod = 1;
+        ajustarLienzo();
         if (botonesMenuContainer) botonesMenuContainer.style.display = "flex";
         if (btnVolverMenu) btnVolverMenu.style.display = "none";
         if (comboContainer) comboContainer.style.display = "none";
@@ -1636,6 +1652,7 @@ if (btnReiniciar) {
             skinsDesbloqueadas = ['clasica'];
             logrosCompletados = [];
             stats = {};
+            historiaProgreso = { completados: [] };
             guardarProgreso();
             location.reload();
         }
@@ -1687,7 +1704,7 @@ function ajustarLienzo() {
     escalaPantalla = Math.max(1, canvas.width / (rect.width || canvas.width));
     // En pantallas pequeñas la bola mide unos 60 px de radio en la pantalla para que sea fácil tocarla
     const tope = vertical ? 130 : 100;
-    bola.radio = esCompacto() ? Math.round(Math.min(tope, Math.max(55, 60 * escalaPantalla))) : 55;
+    bola.radio = Math.round((esCompacto() ? Math.min(tope, Math.max(55, 60 * escalaPantalla)) : 55) * radioMod);
 }
 
 window.addEventListener('resize', ajustarLienzo);
@@ -1695,18 +1712,650 @@ window.addEventListener('orientationchange', () => setTimeout(ajustarLienzo, 200
 document.addEventListener('fullscreenchange', () => setTimeout(ajustarLienzo, 150));
 document.addEventListener('webkitfullscreenchange', () => setTimeout(ajustarLienzo, 150));
 
+// ==========================================
+// MODO HISTORIA
+// ==========================================
+const CAPITULOS = [
+    { id: 1, acto: "Acto I · El Despertar", titulo: "El Último Rebote",
+      intro: ["Hace mucho, en el Reino de Rebotia, la Bola Eterna mantenía el mundo en movimiento. Un día cayó al suelo y todo se quedó quieto.", "Solo un Rebotador puede devolverle la energía… y ese eres tú. Empieza con lo básico: mantén la bola en el aire."],
+      obj: { tipo: 'combo', meta: 10 }, mod: {}, dif: 'facil', vidas: 5, recompensa: 300,
+      victoria: ["¡Lo lograste! La bola brilló un instante y los árboles volvieron a mecerse. Rebotia empieza a despertar."] },
+    { id: 2, acto: "Acto I · El Despertar", titulo: "El Valle Tranquilo",
+      intro: ["Los aldeanos del Valle no han visto un rebote en años. Si quieres su ayuda, tendrás que demostrar constancia."],
+      obj: { tipo: 'clics', meta: 40 }, mod: {}, dif: 'facil', vidas: 5, recompensa: 500,
+      victoria: ["Los aldeanos celebran y te regalan provisiones. «Más allá del valle sopla un viento extraño», te advierten."] },
+    { id: 3, acto: "Acto I · El Despertar", titulo: "Primeras Brisas",
+      intro: ["Al salir del valle te encuentras con un viento que empuja la bola de lado a lado. Aprende a leerlo."],
+      obj: { tipo: 'combo', meta: 15 }, mod: { viento: 0.015 }, dif: 'facil', vidas: 4, recompensa: 800,
+      victoria: ["Dominaste la brisa. El camino hacia el Bosque del Viento está abierto."] },
+    { id: 4, acto: "Acto II · El Bosque del Viento", titulo: "Tormenta de Hojas",
+      intro: ["En el bosque, una tormenta de hojas cubre el cielo. Los Nets caen entre las ramas como monedas de luz: gánalos rebotando sin parar, antes de que se acabe el tiempo."],
+      obj: { tipo: 'nets', meta: 2500 }, mod: { viento: 0.025 }, dif: 'media', vidas: 4, limite: 100, recompensa: 1200,
+      victoria: ["Tus bolsillos tintinean. Pero entre los árboles algo enorme se mueve: el Guardián de las Ramas."] },
+    { id: 5, acto: "Acto II · El Bosque del Viento", titulo: "El Guardián de las Ramas", jefe: true,
+      intro: ["El Guardián, un viejo roble con mal humor, bloquea el paso. Sus ramas soplan ráfagas para tumbar la bola.", "«Nadie cruza sin vencerme», gruñe."],
+      obj: { tipo: 'combo', meta: 20 }, mod: { viento: 0.03, gravedad: 1.1 }, dif: 'media', vidas: 3, recompensa: 2500,
+      victoria: ["El Guardián se inclina y se aparta. «Eres digno», dice. «Pero en la cueva te esperan cosas peores.»"] },
+    { id: 6, acto: "Acto III · Las Cuevas Oscuras", titulo: "Sombras en la Cueva",
+      intro: ["Dentro de la cueva casi no se ve nada. Solo alcanzas a distinguir lo que tienes cerca de la bola. No dejes que toque el suelo."],
+      obj: { tipo: 'tiempo', meta: 40 }, mod: { niebla: 300 }, dif: 'media', vidas: 3, recompensa: 3000,
+      victoria: ["Una luz azul aparece al fondo. Al fin ves el camino… y las enormes piedras que lo bloquean."] },
+    { id: 7, acto: "Acto III · Las Cuevas Oscuras", titulo: "Piedras Pesadas",
+      intro: ["Todo pesa más aquí abajo. La gravedad de la cueva jala la bola con fuerza. Necesitarás reflejos rápidos."],
+      obj: { tipo: 'combo', meta: 15 }, mod: { gravedad: 1.3 }, dif: 'media', vidas: 4, recompensa: 4000,
+      victoria: ["Tus dedos arden, pero la última piedra se rompe. Sales de la cueva al pie de una torre que llega hasta las estrellas."] },
+    { id: 8, acto: "Acto III · Las Cuevas Oscuras", titulo: "El Espejo Roto",
+      intro: ["En un salón de espejos te espera tu propio reflejo, que juega contra ti con una bola diminuta. Si quieres ganarle, tendrás que ser más preciso."],
+      obj: { tipo: 'clics', meta: 100 }, mod: { radio: 0.7 }, dif: 'media', vidas: 4, limite: 90, recompensa: 6000,
+      victoria: ["El reflejo se rompe en mil pedazos y cada uno susurra: «Sigue subiendo»."] },
+    { id: 9, acto: "Acto IV · La Torre del Cosmos", titulo: "La Torre Infinita",
+      intro: ["Cada piso de la torre es más difícil que el anterior. Hay viento, hay oscuridad y no se perdona ningún error."],
+      obj: { tipo: 'combo', meta: 18 }, mod: { viento: 0.03, niebla: 360 }, dif: 'media', vidas: 4, recompensa: 10000,
+      victoria: ["Llegas al último piso. Una voz antigua resuena: «Por fin, Rebotador… te estaba esperando.»"] },
+    { id: 10, acto: "Acto IV · La Torre del Cosmos", titulo: "La Bola Eterna", jefe: true,
+      intro: ["Frente a ti flota la Bola Eterna, dormida y cubierta de grietas.", "Para despertarla debes sostener un rebote perfecto mientras la torre entera se sacude. Aquí un clic fallado rompe tu racha."],
+      obj: { tipo: 'combo', meta: 25 }, mod: { viento: 0.03, radio: 0.85 }, dif: 'dificil', vidas: 5, recompensa: 25000,
+      victoria: ["La Bola Eterna se ilumina y todo Rebotia vuelve a moverse. Las nubes giran, el viento canta y los aldeanos bailan.", "Ya no eres un simple Rebotador: eres la Leyenda de Rebotia. ¡Gracias por jugar!"] }
+];
+
+// ---------- Capítulos 11 al 40 ----------
+const nuevoCap = (id, acto, titulo, intro, tipo, meta, mod, dif, vidas, recompensa, victoria, extra) =>
+    Object.assign({ id, acto, titulo, intro: [intro], obj: { tipo, meta }, mod, dif, vidas, recompensa, victoria: Array.isArray(victoria) ? victoria : [victoria] }, extra || {});
+const A5 = "Acto V · Las Montañas Heladas", A6 = "Acto VI · El Desierto de Cristal", A7 = "Acto VII · El Mar de Tormentas",
+      A8 = "Acto VIII · El Volcán de Ceniza", A9 = "Acto IX · El Cielo Infinito";
+CAPITULOS.push(
+    nuevoCap(11, A5, "El Paso Nevado", "La nieve cubre el camino hacia las montañas. Cada rebote levanta una nube de copos: mantén el ritmo.", 'clics', 80, { viento: 0.02 }, 'media', 5, 8000, "Los copos se asientan y ves la cima helada a lo lejos."),
+    nuevoCap(12, A5, "Hielo Resbaladizo", "El suelo es puro hielo y la bola parece flotar. Tu puntería tendrá que ser perfecta.", 'combo', 20, { viento: 0.025, radio: 0.9, gravedad: 0.9 }, 'media', 4, 9000, "Tus dedos están fríos, pero tu racha no se rompió. Algo enorme respira más adelante."),
+    nuevoCap(13, A5, "El Yeti Gigante", "Un Yeti gigante bloquea el paso y lanza ráfagas heladas. «¡Nadie sube a la cima!», ruge.", 'combo', 22, { viento: 0.03 }, 'media', 3, 12000, "El Yeti se sienta, derrotado, y te deja pasar con un gruñido amistoso."),
+    nuevoCap(14, A5, "Aludes", "La montaña tiembla y la nieve cae con monedas de luz atrapadas. Recógelas antes de que la avalancha termine.", 'nets', 3500, { viento: 0.03 }, 'media', 4, 10000, "Sales de la avalancha con los bolsillos llenos."),
+    nuevoCap(15, A5, "La Cueva de Cristal", "Cristales de hielo reflejan una luz débil. Solo ves lo que está cerca de la bola. ¡No dejes que caiga!", 'tiempo', 45, { niebla: 340 }, 'media', 3, 11000, "Los cristales brillan al fin y revelan un trono de hielo."),
+    nuevoCap(16, A5, "La Reina de la Ventisca", "La Reina de la Ventisca gobierna estas cumbres. Su tormenta apaga la luz y empuja la bola con furia.", 'combo', 25, { viento: 0.04, niebla: 420 }, 'media', 4, 20000, "La Reina se deshace en copos. «Hacia el sur hay un desierto que también te necesita», susurra."),
+    nuevoCap(17, A6, "Dunas Ardientes", "El sol quema la arena y el viento levanta cortinas de polvo. Aguanta el calor.", 'clics', 100, { viento: 0.03 }, 'media', 5, 12000, "La arena se calma un momento y ves un oasis brillar en la distancia.", { limite: 100 }),
+    nuevoCap(18, A6, "Espejismos", "El desierto te engaña: la bola parece más pequeña de lo que es. Confía en tus reflejos.", 'combo', 20, { radio: 0.8 }, 'media', 4, 13000, "El espejismo se desvanece. Un enorme escorpión de cristal te observa desde una duna."),
+    nuevoCap(19, A6, "El Escorpión de Cristal", "El Escorpión de Cristal golpea el suelo y la gravedad parece aumentar. Su cola brilla como una advertencia.", 'combo', 24, { gravedad: 1.15, viento: 0.03 }, 'media', 3, 18000, "Su caparazón se resquebraja en mil destellos. El camino hacia las ruinas queda libre."),
+    nuevoCap(20, A6, "Tormenta de Arena", "Una tormenta de arena lo cubre todo. Apenas ves la bola, pero los Nets brillan entre el polvo.", 'nets', 5000, { viento: 0.045, niebla: 380 }, 'media', 4, 15000, "La tormenta pasa y deja las ruinas al descubierto.", { limite: 110 }),
+    nuevoCap(21, A6, "Ruinas Antiguas", "Las ruinas guardan un pesado secreto: aquí todo pesa más. Mantén la bola en el aire sin descanso.", 'tiempo', 50, { gravedad: 1.2 }, 'media', 3, 16000, "Una puerta dorada se abre y de ella sale una sombra con corona."),
+    nuevoCap(22, A6, "El Faraón de Arena", "El Faraón de Arena despierta de su tumba. Su aliento levanta tormentas y su mirada hace temblar el suelo.", 'combo', 26, { viento: 0.04, radio: 0.85 }, 'media', 4, 28000, "El Faraón se desmorona en arena dorada. «Sigue al mar… allí está el trueno»."),
+    nuevoCap(23, A7, "Puerto Gris", "El mar está furioso y la lluvia no deja de caer. Cada rebote cuenta, aunque el viento empuje.", 'clics', 120, { viento: 0.035 }, 'media', 5, 17000, "Zarpas hacia el mar abierto con la lluvia golpeando el casco.", { limite: 110 }),
+    nuevoCap(24, A7, "Olas Gigantes", "Las olas suben y bajan, y con ellas la gravedad cambia a tu alrededor. Mantente firme.", 'combo', 22, { gravedad: 1.2, viento: 0.04 }, 'media', 4, 19000, "El barco resiste y las olas se calman un instante. Un resplandor eléctrico aparece en el agua."),
+    nuevoCap(25, A7, "La Medusa Eléctrica", "Una Medusa Eléctrica gigante emerge entre relámpagos. En la oscuridad solo ves un halo cerca de la bola.", 'combo', 25, { viento: 0.04, niebla: 400 }, 'media', 3, 26000, "La Medusa se apaga con un destello azul. El mar guarda un último secreto."),
+    nuevoCap(26, A7, "Rayos y Truenos", "Los rayos caen alrededor y cada uno deja Nets flotando en el aire. Aprovecha la tormenta.", 'nets', 6000, { viento: 0.05 }, 'media', 4, 21000, "Tu barco brilla con la energía de la tormenta.", { limite: 100 }),
+    nuevoCap(27, A7, "El Remolino", "Un remolino gigante tira de la bola hacia los lados. Resiste sin tocar el suelo.", 'tiempo', 55, { viento: 0.05 }, 'media', 3, 23000, "Sales del remolino justo cuando una enorme sombra sube desde el fondo."),
+    nuevoCap(28, A7, "El Kraken del Trueno", "El Kraken del Trueno sacude el mar con sus tentáculos. Aquí un solo clic fallado rompe tu racha.", 'combo', 28, { viento: 0.05, gravedad: 1.15 }, 'dificil', 4, 40000, "El Kraken se hunde entre burbujas eléctricas. Al norte, un volcán ruge."),
+    nuevoCap(29, A8, "Camino de Ceniza", "La ceniza cubre el cielo y apenas deja ver. Sigue rebotando hasta llegar al volcán.", 'clics', 140, { niebla: 420 }, 'media', 5, 24000, "El camino se abre hacia el cráter, cada vez más caliente.", { limite: 120 }),
+    nuevoCap(30, A8, "Ríos de Lava", "El suelo hierve y todo se siente más pesado. No dejes que la bola caiga al calor.", 'combo', 24, { gravedad: 1.25 }, 'media', 4, 26000, "Cruzas el último río de lava. Un gigante de roca despierta frente a ti."),
+    nuevoCap(31, A8, "El Golem de Lava", "El Golem de Lava golpea la montaña y la bola se vuelve más difícil de ver. Sus grietas brillan al rojo vivo.", 'combo', 27, { gravedad: 1.2, radio: 0.85 }, 'media', 3, 35000, "El Golem se enfría y se convierte en piedra. Solo queda el calor del cráter."),
+    nuevoCap(32, A8, "Lluvia de Fuego", "Del cielo caen brasas con Nets entre ellas. Recógelas antes de que se apaguen.", 'nets', 7000, { viento: 0.04 }, 'media', 4, 30000, "Sales con las manos quemadas, pero llenas.", { limite: 110 }),
+    nuevoCap(33, A8, "Cráter Ardiente", "El cráter es una caldera: aire denso, gravedad fuerte y humo por todos lados. Mantén la bola viva.", 'tiempo', 60, { gravedad: 1.3, niebla: 360 }, 'media', 3, 33000, "El calor retrocede un poco. Un rugido profundo sacude el cráter."),
+    nuevoCap(34, A8, "El Dragón de Magma", "El Dragón de Magma abre sus alas y la lava sube. Con una bola pequeña y sin margen de error, esta es tu prueba más dura.", 'combo', 30, { viento: 0.045, radio: 0.8 }, 'dificil', 4, 60000, "El Dragón se apaga y sus alas se vuelven ceniza. Más allá del humo se ve un cielo azul clarísimo."),
+    nuevoCap(35, A9, "Escalera de Nubes", "Por fin el cielo se despeja. Una escalera de nubes sube hacia las alturas, con una brisa constante.", 'clics', 160, { viento: 0.03 }, 'media', 5, 36000, "Subes entre nubes suaves. Pero arriba se oyen truenos.", { limite: 120 }),
+    nuevoCap(36, A9, "Tormenta Eléctrica", "Una tormenta eléctrica rodea la escalera. Las ráfagas son fuertes y la gravedad te empuja hacia abajo.", 'combo', 26, { viento: 0.06, gravedad: 1.15 }, 'media', 4, 42000, "Cruzas la tormenta con el pelo electrizado. Un guardián de alas blancas te espera.", { clima: 'lluvia' }),
+    nuevoCap(37, A9, "El Centinela Celestial", "El Centinela Celestial vigila las puertas del cielo. Sus alas levantan vientos que juegan con una bola diminuta.", 'combo', 28, { viento: 0.04, radio: 0.8 }, 'media', 3, 55000, "El Centinela inclina la cabeza. «Puedes pasar, pero el Rey Tormenta no será tan amable.»"),
+    nuevoCap(38, A9, "El Ojo de la Tormenta", "Estás en el centro del huracán: todo gira y casi no se ve. Mantén la bola en el aire.", 'tiempo', 60, { viento: 0.06, niebla: 340 }, 'media', 3, 48000, "El viento se calma. Frente a ti, un trono hecho de nubes oscuras.", { clima: 'lluvia' }),
+    nuevoCap(39, A9, "La Última Prueba", "El Rey Tormenta te desafía a una carrera: junta Nets antes de que se acabe el tiempo.", 'nets', 8000, { viento: 0.05 }, 'media', 4, 60000, "Pasaste la prueba. Ahora, el combate final.", { limite: 120 }),
+    nuevoCap(40, A9, "El Rey Tormenta", "Sobre el trono de nubes se alza el Rey Tormenta, dueño de todos los vientos. «¡Rebotador! ¡Ninguna bola ha cruzado mi cielo!»", 'combo', 32, { viento: 0.06, gravedad: 1.15, radio: 0.8 }, 'dificil', 5, 150000,
+        ["El Rey Tormenta se disuelve en una lluvia de estrellas y el cielo se vuelve azul claro, sin una sola nube.", "Rebotia es libre otra vez. Ya no eres solo un Rebotador: eres la Leyenda del Cielo Infinito. ¡Gracias por jugar!"], { clima: 'brisa' })
+);
+CAPITULOS[9].victoria = ["La Bola Eterna se ilumina y todo Rebotia vuelve a moverse. Las nubes giran, el viento canta y los aldeanos bailan.", "Pero su luz revela un mapa: más allá hay montañas, desiertos y mares que también necesitan tu ayuda. Tu viaje apenas comienza."];
+
+// ---------- Jefes visibles, temas y clima ----------
+const JEFES = {
+    5: { forma: 'arbol', nombre: 'Guardián de las Ramas', color: '#6bd36b' }, 8: { forma: 'espejo', nombre: 'El Reflejo', color: '#9fd8ff' },
+    10: { forma: 'orbe', nombre: 'La Bola Eterna', color: '#ffe58a' }, 13: { forma: 'yeti', nombre: 'Yeti Gigante', color: '#bfe3ff' },
+    16: { forma: 'reina', nombre: 'Reina de la Ventisca', color: '#7dd3fc' }, 19: { forma: 'escorpion', nombre: 'Escorpión de Cristal', color: '#a78bfa' },
+    22: { forma: 'faraon', nombre: 'Faraón de Arena', color: '#fcd34d' }, 25: { forma: 'medusa', nombre: 'Medusa Eléctrica', color: '#e879f9' },
+    28: { forma: 'kraken', nombre: 'Kraken del Trueno', color: '#2dd4bf' }, 31: { forma: 'golem', nombre: 'Golem de Lava', color: '#fb923c' },
+    34: { forma: 'dragon', nombre: 'Dragón de Magma', color: '#f87171' }, 37: { forma: 'angel', nombre: 'Centinela Celestial', color: '#fde68a' },
+    40: { forma: 'titan', nombre: 'Rey Tormenta', color: '#fef08a' }
+};
+const TEMAS_ACTO = [
+    { hasta: 3, tema: 'valle', clima: 'ninguno' }, { hasta: 5, tema: 'bosque', clima: 'hojas' }, { hasta: 8, tema: 'cueva', clima: 'ninguno' },
+    { hasta: 10, tema: 'torre', clima: 'ninguno' }, { hasta: 16, tema: 'nieve', clima: 'nieve' }, { hasta: 22, tema: 'desierto', clima: 'arena' },
+    { hasta: 28, tema: 'mar', clima: 'lluvia' }, { hasta: 34, tema: 'volcan', clima: 'ceniza' }, { hasta: 40, tema: 'cielo', clima: 'brisa' }
+];
+CAPITULOS.forEach(c => {
+    const t = TEMAS_ACTO.find(a => c.id <= a.hasta);
+    c.tema = t.tema;
+    c.clima = c.clima || t.clima;
+    if (c.clima === 'ninguno' && c.mod.viento) c.clima = 'brisa';
+    if (JEFES[c.id]) c.jefe = JEFES[c.id];
+});
+
+const TEMAS = {
+    valle: { cielo: ['#6ec6ff', '#d6f0ff'], nubes: '#ffffff', sol: '#fff2a8', suelo: 'colinas', c: ['#58b95c', '#3d9a45'] },
+    bosque: { cielo: ['#86b6d8', '#cfe3ee'], nubes: '#e3ecf1', suelo: 'colinas', c: ['#2f8f4e', '#1f6b38'] },
+    cueva: { cielo: ['#2b2641', '#0f0c1c'], suelo: 'roca', c: ['#1a1628', '#0a0814'] },
+    torre: { cielo: ['#0a0f2e', '#3b2a7c'], estrellas: true, suelo: 'torre', c: ['#1a1446', '#0c0a2a'] },
+    nieve: { cielo: ['#b9d7ee', '#f1f8ff'], nubes: '#ffffff', suelo: 'montanas', c: ['#eef6fd', '#a9c7e0'] },
+    desierto: { cielo: ['#ffb067', '#ffe7b0'], sol: '#fff7d6', suelo: 'dunas', c: ['#e3a85d', '#c98b3d'] },
+    mar: { cielo: ['#3a4a62', '#1b2434'], nubes: '#55657e', suelo: 'olas', c: ['#1f5a88', '#0e3050'] },
+    volcan: { cielo: ['#3d0f0c', '#d4500f'], suelo: 'volcan', c: ['#2a0b09', '#140605'] },
+    cielo: { cielo: ['#4fb3ff', '#e9f7ff'], nubes: '#ffffff', sol: '#fff6c2', suelo: 'nubes', c: ['#ffffff', '#dff0ff'] }
+};
+
+// ---------- Dibujo de los jefes (en unidades; 1 = radio del jefe) ----------
+const elip = (g, x, y, rx, ry, f, r) => { g.fillStyle = f; g.beginPath(); g.ellipse(x, y, rx, ry, r || 0, 0, PI2); g.fill(); };
+const circ = (g, x, y, r, f) => { g.fillStyle = f; g.beginPath(); g.arc(x, y, r, 0, PI2); g.fill(); };
+const ojosJ = (g, x, y, sep, col, t) => {
+    g.save(); g.shadowColor = col; g.shadowBlur = 10;
+    [-1, 1].forEach(k => elip(g, x + k * sep, y, 0.1, 0.05 + 0.03 * Math.sin(t * 2), col, k * 0.3));
+    g.restore();
+};
+const tentaculo = (g, x0, y0, ang, len, w, col, t, fase) => {
+    g.strokeStyle = col; g.lineWidth = w; g.lineCap = 'round'; g.beginPath(); g.moveTo(x0, y0);
+    for (let i = 1; i <= 8; i++) { const k = i / 8, a = ang + Math.sin(t * 2 + fase + k * 3) * 0.5 * k; g.lineTo(x0 + Math.cos(a) * len * k, y0 + Math.sin(a) * len * k); }
+    g.stroke();
+};
+const poli = (g, pts, f) => { g.fillStyle = f; g.beginPath(); pts.forEach(([x, y], i) => i ? g.lineTo(x, y) : g.moveTo(x, y)); g.closePath(); g.fill(); };
+const linea = (g, pts, col, w) => { g.strokeStyle = col; g.lineWidth = w; g.lineCap = 'round'; g.lineJoin = 'round'; g.beginPath(); pts.forEach(([x, y], i) => i ? g.lineTo(x, y) : g.moveTo(x, y)); g.stroke(); };
+
+const FORMAS_JEFE = {
+    arbol(g, t) {
+        g.fillStyle = '#6b4423'; g.fillRect(-0.4, -0.1, 0.8, 1.4);
+        tentaculo(g, -0.4, 0.3, Math.PI * 0.85, 0.9, 0.12, '#6b4423', t, 0); tentaculo(g, 0.4, 0.3, Math.PI * 0.15, 0.9, 0.12, '#6b4423', t, 1);
+        [[-0.6, -0.6, 0.7, '#2e8b57'], [0.6, -0.6, 0.7, '#2e8b57'], [0, -1, 0.8, '#3cb371'], [0, -0.45, 0.7, '#2e8b57']].forEach(([x, y, r, c]) => circ(g, x, y, r, c));
+        ojosJ(g, 0, 0.15, 0.18, '#ffe14d', t); elip(g, 0, 0.5, 0.15, 0.07, '#2a1a0a');
+    },
+    espejo(g, t) {
+        elip(g, 0, 0, 0.95, 1.3, '#d4a017');
+        const gr = g.createLinearGradient(-0.7, -1, 0.7, 1); gr.addColorStop(0, '#e8f7ff'); gr.addColorStop(1, '#5aa7d6'); elip(g, 0, 0, 0.8, 1.15, gr);
+        linea(g, [[0, -1.1], [0.1, -0.5], [-0.15, -0.1], [0.2, 0.4], [0, 1.1]], 'rgba(255,255,255,0.85)', 0.03);
+        linea(g, [[-0.7, -0.4], [-0.2, -0.2], [0.3, 0.1]], 'rgba(255,255,255,0.85)', 0.03);
+        ojosJ(g, 0, -0.1, 0.25, '#ffffff', t);
+    },
+    orbe(g, t) {
+        const gr = g.createRadialGradient(-0.3, -0.3, 0.1, 0, 0, 1); gr.addColorStop(0, '#ffffff'); gr.addColorStop(0.5, '#ffe58a'); gr.addColorStop(1, '#c9891a'); circ(g, 0, 0, 1, gr);
+        linea(g, [[0, -1], [0.15, -0.5], [-0.1, 0], [0.2, 0.5], [0, 1]], 'rgba(255,120,20,0.9)', 0.05);
+        linea(g, [[-1, 0.1], [-0.5, 0.2], [-0.2, -0.1]], 'rgba(255,120,20,0.9)', 0.04);
+        g.save(); g.rotate(t * 0.5); linea(g, Array.from({ length: 25 }, (_, i) => [Math.cos(i / 24 * PI2) * 1.4, Math.sin(i / 24 * PI2) * 0.35]), 'rgba(255,240,170,0.8)', 0.05); g.restore();
+    },
+    yeti(g, t) {
+        elip(g, 0, 0.5, 0.95, 1.0, '#dfeeff'); elip(g, 0, -0.55, 0.62, 0.58, '#f4faff');
+        linea(g, [[-0.8, 0.2], [-1.2 + Math.sin(t * 2) * 0.1, 0.9]], '#cfe3f7', 0.38); linea(g, [[0.8, 0.2], [1.2 - Math.sin(t * 2) * 0.1, 0.9]], '#cfe3f7', 0.38);
+        elip(g, 0, -0.5, 0.4, 0.3, '#8fb3d6'); ojosJ(g, 0, -0.6, 0.2, '#ff4b4b', t);
+        [-0.15, 0.15].forEach(x => poli(g, [[x - 0.05, -0.38], [x + 0.05, -0.38], [x, -0.2]], '#ffffff'));
+    },
+    reina(g, t) {
+        const gr = g.createLinearGradient(0, -0.2, 0, 1.3); gr.addColorStop(0, '#e6f6ff'); gr.addColorStop(1, '#6fb6e8'); poli(g, [[0, -0.15], [0.85, 1.3], [-0.85, 1.3]], gr);
+        elip(g, 0, -0.4, 0.34, 0.38, '#f3e6ea');
+        for (let i = 0; i < 5; i++) poli(g, [[-0.3 + i * 0.15 - 0.07, -0.7], [-0.3 + i * 0.15 + 0.07, -0.7], [-0.3 + i * 0.15, -1.0 - (i % 2) * 0.12]], '#bfe9ff');
+        ojosJ(g, 0, -0.4, 0.12, '#38bdf8', t); linea(g, [[0.9, 1.0], [1.2, -0.4]], '#bfe9ff', 0.06);
+        g.save(); g.translate(1.2, -0.5); g.rotate(t); for (let i = 0; i < 3; i++) { g.rotate(Math.PI / 3); linea(g, [[-0.3, 0], [0.3, 0]], '#e0f7ff', 0.04); } g.restore();
+    },
+    escorpion(g, t) {
+        elip(g, 0, 0.2, 0.8, 0.55, '#7c4dff'); elip(g, 0, 0.05, 0.5, 0.25, 'rgba(255,255,255,0.25)');
+        [-1, 1].forEach(k => { g.strokeStyle = '#9b7bff'; g.lineWidth = 0.14; g.lineCap = 'round'; g.beginPath(); g.moveTo(k * 0.6, 0.3); g.quadraticCurveTo(k * 1.3, 0.3, k * 1.2, -0.3); g.stroke(); elip(g, k * 1.2, -0.4, 0.2, 0.15, '#b9a2ff', k * 0.5); });
+        g.strokeStyle = '#9b7bff'; g.lineWidth = 0.14; g.beginPath(); g.moveTo(0, 0.6); g.quadraticCurveTo(0.9, 0.9, 0.5, -0.2); g.quadraticCurveTo(0.3, -0.9, -0.1 + Math.sin(t * 3) * 0.05, -1.0); g.stroke();
+        poli(g, [[-0.2, -0.95], [0.0, -0.95], [-0.15, -1.25]], '#f0abfc'); ojosJ(g, 0, 0.1, 0.25, '#22d3ee', t);
+    },
+    faraon(g, t) {
+        poli(g, [[-0.6, -1.1], [0.6, -1.1], [0.95, 0.6], [-0.95, 0.6]], '#e0b43a');
+        [-0.7, -0.3, 0.1].forEach(y => { g.fillStyle = '#2f6fe0'; g.fillRect(-0.85, y, 1.7, 0.1); });
+        elip(g, 0, -0.2, 0.38, 0.5, '#8b5a2b'); ojosJ(g, 0, -0.3, 0.17, '#7CFC00', t);
+        g.fillStyle = '#2f6fe0'; g.fillRect(-0.08, 0.2, 0.16, 0.4); elip(g, 0, 0.85, 0.9, 0.35, '#e0b43a'); elip(g, 0, 0.85, 0.7, 0.22, '#2f6fe0');
+    },
+    medusa(g, t) {
+        for (let i = 0; i < 6; i++) tentaculo(g, -0.8 + i * 0.32, 0.05, Math.PI / 2, 1.2, 0.08, 'rgba(160,100,255,0.85)', t, i);
+        g.fillStyle = 'rgba(190,120,255,0.85)'; g.beginPath(); g.arc(0, 0, 1, Math.PI, 0); g.closePath(); g.fill();
+        elip(g, 0, -0.1, 0.6, 0.35, 'rgba(255,255,255,0.25)');
+        const f = Math.floor(t * 10);
+        [-1, 1].forEach((k, n) => linea(g, Array.from({ length: 5 }, (_, i) => [k * (1.05 + i * 0.18), -0.1 + (hash(f + n * 9 + i) - 0.5) * 0.4]), '#e0f7ff', 0.04));
+        ojosJ(g, 0, -0.35, 0.2, '#22d3ee', t);
+    },
+    kraken(g, t) {
+        for (let i = 0; i < 6; i++) tentaculo(g, -0.8 + i * 0.32, 0.4, Math.PI / 2 + (i - 2.5) * 0.35, 1.3, 0.16, '#1f6f78', t, i);
+        elip(g, 0, -0.2, 0.9, 0.8, '#2b8f9a'); elip(g, -0.3, -0.5, 0.3, 0.15, 'rgba(255,255,255,0.25)'); ojosJ(g, 0, -0.25, 0.3, '#ffd400', t);
+    },
+    golem(g, t) {
+        g.fillStyle = '#6b6f7a'; g.fillRect(-0.7, -0.3, 1.4, 1.2); g.fillRect(-0.4, -0.95, 0.8, 0.55); g.fillRect(-1.2, -0.2, 0.45, 1.0); g.fillRect(0.75, -0.2, 0.45, 1.0);
+        g.fillStyle = 'rgba(0,0,0,0.25)'; g.fillRect(-0.7, 0.4, 1.4, 0.5); g.fillRect(-1.2, 0.4, 0.45, 0.4); g.fillRect(0.75, 0.4, 0.45, 0.4);
+        const p = 0.6 + 0.4 * Math.sin(t * 3); g.save(); g.shadowColor = '#ff7a18'; g.shadowBlur = 10;
+        linea(g, [[-0.5, -0.1], [-0.2, 0.2], [-0.3, 0.6]], `rgba(255,${120 + 80 * p | 0},24,1)`, 0.06); linea(g, [[0.4, -0.2], [0.1, 0.3], [0.45, 0.7]], `rgba(255,${120 + 80 * p | 0},24,1)`, 0.06); g.restore();
+        ojosJ(g, 0, -0.7, 0.17, '#ff9a2e', t);
+    },
+    dragon(g, t) {
+        [-1, 1].forEach(k => { poli(g, [[k * 0.7, -0.1], [k * 1.8, -0.9], [k * 1.5, 0.1], [k * 1.2, 0.5], [k * 0.7, 0.4]], '#8f1d1d'); linea(g, [[k * 0.8, 0], [k * 1.7, -0.8]], '#c24141', 0.04); });
+        const fl = g.createLinearGradient(0, 0.5, 0, 1.5); fl.addColorStop(0, '#fff3a0'); fl.addColorStop(1, 'rgba(255,60,0,0)');
+        poli(g, [[-0.25, 0.55], [0.25, 0.55], [Math.sin(t * 10) * 0.15, 1.4 + Math.sin(t * 8) * 0.1]], fl);
+        elip(g, 0, 0, 0.8, 0.7, '#e0452b'); [-1, 1].forEach(k => poli(g, [[k * 0.4, -0.5], [k * 0.7, -0.55], [k * 0.8, -1.2]], '#f4e3b0'));
+        elip(g, 0, 0.3, 0.45, 0.3, '#f26a4a'); circ(g, -0.15, 0.3, 0.04, '#5a1010'); circ(g, 0.15, 0.3, 0.04, '#5a1010'); ojosJ(g, 0, -0.15, 0.35, '#ffe14d', t);
+    },
+    angel(g, t) {
+        [-1, 1].forEach(k => { for (let j = 0; j < 3; j++) elip(g, k * (0.8 + j * 0.15), -0.1 + j * 0.28 + Math.sin(t * 3) * 0.03, 0.65, 0.18, 'rgba(255,255,255,0.9)', k * (0.5 + j * 0.12)); });
+        const gr = g.createLinearGradient(0, -0.1, 0, 1.3); gr.addColorStop(0, '#ffffff'); gr.addColorStop(1, '#ffe8a8'); poli(g, [[0, -0.1], [0.7, 1.3], [-0.7, 1.3]], gr);
+        elip(g, 0, -0.4, 0.3, 0.34, '#fbe9d0'); g.strokeStyle = '#ffd84a'; g.lineWidth = 0.07; g.beginPath(); g.ellipse(0, -0.95, 0.4, 0.1, 0, 0, PI2); g.stroke(); ojosJ(g, 0, -0.42, 0.1, '#38bdf8', t);
+    },
+    titan(g, t) {
+        [[0, 0.2, 0.95], [-0.8, 0.35, 0.6], [0.8, 0.35, 0.6], [-0.5, -0.4, 0.6], [0.5, -0.4, 0.6], [0, -0.6, 0.55]].forEach(([x, y, r]) => { circ(g, x, y, r, '#4b5670'); circ(g, x - 0.05, y - 0.05, r * 0.8, '#66728f'); });
+        const f = Math.floor(t * 8);
+        linea(g, [[-0.5, -1.0], [-0.3, -1.4], [-0.15, -1.1], [0, -1.6], [0.15, -1.1], [0.3, -1.4], [0.5, -1.0]], '#fff7a8', 0.06);
+        [-1, 1].forEach((k, n) => linea(g, Array.from({ length: 5 }, (_, i) => [k * (1.2 + i * 0.12), -0.2 + (hash(f + n * 7 + i) - 0.5) * 0.5]), '#fff7a8', 0.04));
+        ojosJ(g, 0, -0.2, 0.28, '#fff7a8', t);
+    }
+};
+
+// ---------- Escena de fondo, jefe y clima ----------
+let historiaDt = 0.016;
+let capituloActual = null;
+
+function jefesDerrotados() {
+    return Object.keys(JEFES).filter(id => historiaProgreso.completados.includes(Number(id))).length;
+}
+
+function ondaFondo(y0, amp, freq, fase, color, w, h) {
+    ctx.fillStyle = color; ctx.beginPath(); ctx.moveTo(0, h);
+    for (let x = 0; x <= w + 16; x += 16) ctx.lineTo(x, y0 + Math.sin(x * freq + fase) * amp);
+    ctx.lineTo(w, h); ctx.closePath(); ctx.fill();
+}
+
+function nubeFondo(x, y, s, col) {
+    ctx.fillStyle = col; ctx.beginPath();
+    [[0, 0, 1], [0.9, 0.15, 0.8], [-0.9, 0.2, 0.7], [0.2, -0.4, 0.7]].forEach(([dx, dy, k]) => {
+        ctx.moveTo(x + dx * s + k * s, y + dy * s); ctx.arc(x + dx * s, y + dy * s, k * s, 0, PI2);
+    });
+    ctx.fill();
+}
+
+function estadoRayo(t) {
+    const ciclo = Math.floor(t / 5), fase = t - ciclo * 5, on = fase < 0.3 && hash(ciclo + 7) > 0.3;
+    return { on, a: on ? 1 - fase / 0.3 : 0, x: 0.15 + hash(ciclo + 3) * 0.7, ciclo };
+}
+
+function dibujarClima(c, w, h, t) {
+    const clima = c.clima;
+    if (!clima || clima === 'ninguno') return;
+    if (!historia.parts) historia.parts = Array.from({ length: 70 }, () => ({ x: Math.random(), y: Math.random(), v: 0.6 + Math.random() * 0.8, s: Math.random() }));
+    const viento = c.mod.viento || 0.02, vx = Math.sin(performance.now() / 1300) * (0.12 + viento * 7), dt = historiaDt, k = w / 720;
+    ctx.save(); ctx.lineCap = 'round';
+    historia.parts.forEach((p, i) => {
+        p.x += vx * p.v * dt * (clima === 'arena' ? 2.5 : (clima === 'lluvia' ? 0.5 : 1));
+        if (clima === 'hojas') p.y += 0.07 * p.v * dt;
+        else if (clima === 'lluvia') p.y += 1.1 * p.v * dt;
+        else if (clima === 'nieve') { p.y += 0.1 * p.v * dt; p.x += Math.sin(t + i) * 0.0008; }
+        else if (clima === 'ceniza') p.y -= 0.06 * p.v * dt;
+        p.x = ((p.x % 1) + 1) % 1; p.y = ((p.y % 1) + 1) % 1;
+        const X = p.x * w, Y = p.y * h, sg = vx < 0 ? -1 : 1;
+        if (clima === 'brisa') {
+            ctx.strokeStyle = 'rgba(255,255,255,0.5)'; ctx.lineWidth = 2 * k; ctx.beginPath();
+            ctx.moveTo(X, Y + Math.sin(t * 2 + i) * 8 * k); ctx.lineTo(X - sg * w * (0.04 + Math.abs(vx) * 0.15), Y + Math.sin(t * 2 + i + 0.6) * 8 * k); ctx.stroke();
+        } else if (clima === 'hojas') {
+            ctx.save(); ctx.translate(X, Y); ctx.rotate(t * 2 * p.v + i); ctx.fillStyle = p.s > 0.5 ? '#6bbf59' : '#d9a441';
+            ctx.beginPath(); ctx.ellipse(0, 0, 7 * k, 3.5 * k, 0, 0, PI2); ctx.fill(); ctx.restore();
+        } else if (clima === 'lluvia') {
+            ctx.strokeStyle = 'rgba(190,210,255,0.55)'; ctx.lineWidth = 1.6 * k; ctx.beginPath(); ctx.moveTo(X, Y); ctx.lineTo(X + vx * 60 * k, Y + 22 * k); ctx.stroke();
+        } else if (clima === 'nieve') {
+            circ(ctx, X, Y, (2.5 + 3 * p.s) * k, 'rgba(110,160,210,0.55)'); circ(ctx, X, Y, (1.8 + 2 * p.s) * k, '#ffffff');
+        } else if (clima === 'arena') {
+            ctx.strokeStyle = 'rgba(255,230,180,0.7)'; ctx.lineWidth = 2 * k; ctx.beginPath(); ctx.moveTo(X, Y); ctx.lineTo(X - sg * 14 * k, Y); ctx.stroke();
+        } else if (clima === 'ceniza') {
+            circ(ctx, X, Y, (1.5 + 2 * p.s) * k, p.s > 0.6 ? 'rgba(255,140,40,0.85)' : 'rgba(180,170,170,0.6)');
+        }
+    });
+    if (clima === 'arena') { ctx.fillStyle = 'rgba(230,170,90,0.14)'; ctx.fillRect(0, 0, w, h); }
+    ctx.restore();
+}
+
+function dibujarJefe(c, w, h, t) {
+    const j = c.jefe;
+    if (!j || !FORMAS_JEFE[j.forma]) return;
+    const R = Math.min(w * 0.13, h * 0.2), cx = w * 0.5 + (historia.flash > 0 ? (Math.random() - 0.5) * 8 : 0), cy = h * 0.3 + Math.sin(t * 1.5) * R * 0.08;
+    const aura = ctx.createRadialGradient(cx, cy, R * 0.3, cx, cy, R * 1.9);
+    aura.addColorStop(0, j.color + '66'); aura.addColorStop(1, j.color + '00');
+    ctx.fillStyle = aura; ctx.fillRect(0, 0, w, h);
+    ctx.save(); ctx.translate(cx, cy); ctx.scale(R, R); ctx.globalAlpha = 0.95;
+    FORMAS_JEFE[j.forma](ctx, t);
+    ctx.restore();
+    if (historia.flash > 0) { ctx.save(); ctx.globalAlpha = Math.min(0.6, historia.flash * 2); circ(ctx, cx, cy, R * 1.1, '#ffffff'); ctx.restore(); }
+}
+
+function dibujarEscenaHistoria() {
+    if (!ctx || !historia.activa || historia.terminado || pantallaActual !== "juego") return;
+    const c = historia.cap, T = TEMAS[c.tema], w = canvas.width, h = canvas.height, t = performance.now() / 1000, k = w / 720;
+    const cielo = ctx.createLinearGradient(0, 0, 0, h); cielo.addColorStop(0, T.cielo[0]); cielo.addColorStop(1, T.cielo[1]);
+    ctx.fillStyle = cielo; ctx.fillRect(0, 0, w, h);
+    if (T.estrellas) {
+        ctx.fillStyle = '#ffffff';
+        for (let i = 0; i < 40; i++) { ctx.globalAlpha = 0.4 + 0.6 * Math.abs(Math.sin(t * 1.5 + i)); ctx.fillRect(hash(i) * w, hash(i + 99) * h * 0.8, 2 * k, 2 * k); }
+        ctx.globalAlpha = 1;
+    }
+    if (T.sol) {
+        const sx = w * 0.82, sy = h * 0.13, glow = ctx.createRadialGradient(sx, sy, 0, sx, sy, w * 0.16);
+        glow.addColorStop(0, T.sol); glow.addColorStop(1, 'rgba(255,255,255,0)');
+        ctx.fillStyle = glow; ctx.fillRect(0, 0, w, h * 0.4); circ(ctx, sx, sy, w * 0.045, T.sol);
+    }
+    if (T.nubes) {
+        for (let i = 0; i < 6; i++) {
+            const x = ((hash(i + 1) * 1.4 * w + t * (10 + hash(i + 5) * 18) * k) % (w * 1.4)) - w * 0.2;
+            nubeFondo(x, h * (0.08 + hash(i + 9) * 0.35), w * (0.05 + hash(i + 3) * 0.05), T.nubes);
+        }
+    }
+    const s = T.suelo, f = Math.PI * 2 / w;
+    if (s === 'colinas') { ondaFondo(h * 0.86, h * 0.025, f * 1.2, 0.5, T.c[1], w, h); ondaFondo(h * 0.92, h * 0.02, f * 2, 2, T.c[0], w, h); }
+    else if (s === 'dunas') { ondaFondo(h * 0.84, h * 0.035, f * 0.9, 1, T.c[1], w, h); ondaFondo(h * 0.91, h * 0.03, f * 1.4, 3, T.c[0], w, h); }
+    else if (s === 'olas') { ondaFondo(h * 0.85, h * 0.012, f * 3, t * 1.4, T.c[0], w, h); ondaFondo(h * 0.89, h * 0.015, f * 2, -t * 1.1, T.c[1], w, h); }
+    else if (s === 'montanas') {
+        for (let i = 0; i < 4; i++) {
+            const x = w * (0.1 + i * 0.28), alto = h * (0.2 + hash(i) * 0.15);
+            poli(ctx, [[x - w * 0.2, h * 0.88], [x, h * 0.88 - alto], [x + w * 0.2, h * 0.88]], T.c[1]);
+            poli(ctx, [[x - w * 0.05, h * 0.88 - alto * 0.78], [x, h * 0.88 - alto], [x + w * 0.05, h * 0.88 - alto * 0.78]], '#ffffff');
+        }
+        ctx.fillStyle = T.c[0]; ctx.fillRect(0, h * 0.88, w, h * 0.12);
+    } else if (s === 'volcan') {
+        poli(ctx, [[w * 0.5, h * 0.88], [w * 0.7, h * 0.45], [w * 0.9, h * 0.88]], T.c[0]);
+        const lava = ctx.createRadialGradient(w * 0.7, h * 0.45, 0, w * 0.7, h * 0.45, w * 0.12); lava.addColorStop(0, 'rgba(255,160,40,0.9)'); lava.addColorStop(1, 'rgba(255,80,0,0)');
+        ctx.fillStyle = lava; ctx.fillRect(w * 0.5, h * 0.3, w * 0.4, h * 0.3);
+        for (let i = 0; i < 5; i++) circ(ctx, w * 0.7 + Math.sin(t + i) * 20 * k, h * 0.45 - ((t * 20 + i * 40) % 200) * k, (20 + i * 6) * k, 'rgba(60,40,40,0.35)');
+        ctx.fillStyle = T.c[1]; ctx.fillRect(0, h * 0.9, w, h * 0.1);
+    } else if (s === 'roca') {
+        for (let i = 0; i < 9; i++) poli(ctx, [[i * w / 8 - w * 0.06, 0], [i * w / 8 + w * 0.06, 0], [i * w / 8, h * (0.05 + hash(i) * 0.1)]], T.c[0]);
+        ctx.fillStyle = T.c[0]; ctx.fillRect(0, h * 0.94, w, h * 0.06);
+    } else if (s === 'torre') {
+        ctx.fillStyle = T.c[0]; ctx.fillRect(0, h * 0.92, w, h * 0.08);
+    } else if (s === 'nubes') {
+        for (let i = 0; i < 7; i++) nubeFondo(w * i / 6, h * 0.97, w * 0.12, '#ffffff');
+    }
+    dibujarJefe(c, w, h, t);
+    dibujarClima(c, w, h, t);
+    if (c.clima === 'lluvia') {
+        const r = estadoRayo(t);
+        if (r.on) {
+            const pts = [[r.x * w, 0]]; let x = r.x * w;
+            for (let i = 1; i <= 7; i++) { x += (hash(r.ciclo * 13 + i) - 0.5) * w * 0.12; pts.push([x, i * h * 0.08]); }
+            linea(ctx, pts, 'rgba(255,255,200,0.95)', 4 * k);
+        }
+    }
+}
+
+const NOMBRES_DIF = { facil: 'Fácil', media: 'Media', dificil: 'Difícil' };
+let historiaProgreso = JSON.parse(localStorage.getItem('historiaProgreso')) || { completados: [] };
+let historia = { activa: false, cap: null, clics: 0, netsInicio: 0, vivo: 0, total: 0, vidas: 0, terminado: false };
+let radioMod = 1;
+let historiaUltimoFrame = performance.now();
+
+const modalHistoria = document.getElementById('modalHistoria');
+const capitulosGrid = document.getElementById('capitulosGrid');
+const historiaSubtitulo = document.getElementById('historiaSubtitulo');
+const modalDialogo = document.getElementById('modalDialogo');
+const dialogoActo = document.getElementById('dialogoActo');
+const dialogoTitulo = document.getElementById('dialogoTitulo');
+const dialogoTexto = document.getElementById('dialogoTexto');
+const dialogoObjetivo = document.getElementById('dialogoObjetivo');
+const dialogoAcciones = document.getElementById('dialogoAcciones');
+const btnHistoria = document.getElementById('btnHistoria');
+const cerrarHistoria = document.getElementById('cerrarHistoria');
+
+function modH(nombre, def) {
+    const m = historia.activa && !historia.terminado && historia.cap ? historia.cap.mod : null;
+    return m && m[nombre] !== undefined ? m[nombre] : def;
+}
+
+function textoObjetivo(c) {
+    const o = c.obj;
+    if (o.tipo === 'combo') return `Llega a una racha de ${o.meta} clics seguidos.`;
+    if (o.tipo === 'clics') return `Haz ${o.meta} clics en la bola.`;
+    if (o.tipo === 'nets') return `Gana ${o.meta} Nets en este capítulo.`;
+    return `Mantén la bola en el aire ${o.meta} segundos sin que toque el suelo.`;
+}
+
+function textoReglas(c) {
+    const r = [`Dificultad ${NOMBRES_DIF[c.dif]}`, `${c.vidas} vidas`];
+    if (c.limite) r.push(`Tiempo límite: ${c.limite} s`);
+    if (c.mod.viento) r.push('Viento');
+    if (c.mod.gravedad) r.push(c.mod.gravedad > 1 ? 'Más gravedad' : 'Menos gravedad');
+    if (c.mod.radio) r.push('Bola más pequeña');
+    if (c.mod.niebla) r.push('Niebla');
+    return r.join(' · ');
+}
+
+function progresoCapitulo() {
+    const o = historia.cap.obj;
+    if (o.tipo === 'combo') return clicksConsecutivos;
+    if (o.tipo === 'clics') return historia.clics;
+    if (o.tipo === 'nets') return Math.max(0, nets - historia.netsInicio);
+    return Math.floor(historia.vivo);
+}
+
+function mostrarDialogo(o) {
+    dialogoActo.textContent = o.acto || '';
+    dialogoTitulo.textContent = o.titulo || '';
+    dialogoTexto.innerHTML = '';
+    (o.parrafos || []).forEach(t => {
+        const p = document.createElement('p');
+        p.textContent = t;
+        dialogoTexto.appendChild(p);
+    });
+    dialogoObjetivo.textContent = o.objetivo || '';
+    dialogoObjetivo.style.display = o.objetivo ? 'block' : 'none';
+    dialogoAcciones.innerHTML = '';
+    o.botones.filter(Boolean).forEach(b => {
+        const btn = document.createElement('button');
+        btn.className = 'btn-juego' + (b.clase ? ' ' + b.clase : '');
+        btn.textContent = b.texto;
+        btn.addEventListener('click', b.fn);
+        dialogoAcciones.appendChild(btn);
+    });
+    modalDialogo.style.display = 'flex';
+}
+
+function cerrarDialogo() { modalDialogo.style.display = 'none'; }
+
+function actualizarCapitulosUI() {
+    capitulosGrid.innerHTML = '';
+    capituloActual = null;
+    historiaSubtitulo.textContent = `Capítulos completados: ${historiaProgreso.completados.length}/${CAPITULOS.length}`;
+    CAPITULOS.forEach((c, i) => {
+        const hecho = historiaProgreso.completados.includes(c.id);
+        const libre = i === 0 || historiaProgreso.completados.includes(CAPITULOS[i - 1].id);
+        if (i === 0 || CAPITULOS[i - 1].acto !== c.acto) {
+            const titulo = document.createElement('h3');
+            titulo.className = 'acto-titulo';
+            titulo.textContent = c.acto;
+            capitulosGrid.appendChild(titulo);
+        }
+        const card = document.createElement('div');
+        if (libre && !hecho && !capituloActual) capituloActual = card;
+        card.className = 'skin-card' + (hecho ? ' completado' : '') + (libre ? '' : ' bloqueado');
+        card.innerHTML = `<h3>${c.jefe ? '👑 ' : ''}Cap. ${c.id}: ${c.titulo}</h3>
+            <p>${c.acto}</p>
+            ${c.jefe ? `<p>Jefe: ${c.jefe.nombre}</p>` : ''}
+            <p>${libre ? textoObjetivo(c) : 'Completa el capítulo anterior para desbloquearlo.'}</p>
+            <p>Recompensa: ${c.recompensa} Nets${hecho ? ' (cobrada)' : ''}</p>`;
+        const btn = document.createElement('button');
+        btn.textContent = !libre ? '🔒 Bloqueado' : (hecho ? 'Jugar de nuevo' : 'Jugar');
+        btn.disabled = !libre;
+        if (hecho) btn.className = 'btn-equipar';
+        btn.addEventListener('click', () => elegirCapitulo(i));
+        card.appendChild(btn);
+        capitulosGrid.appendChild(card);
+    });
+}
+
+function abrirHistoria() {
+    actualizarCapitulosUI();
+    modalHistoria.style.display = 'flex';
+    setTimeout(() => { if (capituloActual && capituloActual.scrollIntoView) capituloActual.scrollIntoView({ block: 'center' }); }, 50);
+}
+
+function elegirCapitulo(i) {
+    const c = CAPITULOS[i];
+    modalHistoria.style.display = 'none';
+    mostrarDialogo({
+        acto: c.acto,
+        titulo: `Capítulo ${c.id}: ${c.titulo}`,
+        parrafos: c.intro,
+        objetivo: `🎯 ${textoObjetivo(c)}\n📋 ${textoReglas(c)}${c.jefe ? '\n👑 Jefe: ' + c.jefe.nombre : ''}`,
+        botones: [
+            { texto: '¡Comenzar!', fn: () => comenzarCapitulo(c) },
+            { texto: 'Volver', clase: 'button-volver', fn: () => { cerrarDialogo(); abrirHistoria(); } }
+        ]
+    });
+}
+
+function comenzarCapitulo(c) {
+    cerrarDialogo();
+    ejecutarTransicion(() => {
+        historia = { activa: true, cap: c, clics: 0, netsInicio: nets, vivo: 0, total: 0, vidas: c.vidas, terminado: false, parts: null, flash: 0, pUlt: 0 };
+        radioMod = c.mod.radio || 1;
+        ajustarLienzo();
+        dificultadActual = c.dif;
+        if (dificultadBadge) {
+            dificultadBadge.textContent = dificultadActual.toUpperCase();
+            dificultadBadge.className = `badge-dificultad dif-${dificultadActual}`;
+        }
+        pantallaActual = "juego";
+        bolaEnEsperaSaque = true;
+        clicksConsecutivos = 0;
+        if (comboCount) comboCount.textContent = 0;
+        bola.vx = 0; bola.vy = 0;
+        bola.x = canvas.width / 2;
+        bola.y = alturaEspera();
+        if (botonesMenuContainer) botonesMenuContainer.style.display = "none";
+        if (btnVolverMenu) btnVolverMenu.style.display = "inline-block";
+        if (comboContainer) comboContainer.style.display = "block";
+        if (mensaje) {
+            mensaje.textContent = `Capítulo ${c.id}: haz clic en la bola para empezar`;
+            mensaje.style.color = "#ffffff";
+        }
+    });
+}
+
+function terminarCapitulo(ganado, motivo) {
+    if (!historia.activa || historia.terminado) return;
+    const c = historia.cap;
+    const indice = CAPITULOS.indexOf(c);
+    historia.terminado = true;
+    radioMod = 1;
+    ajustarLienzo();
+    bolaEnEsperaSaque = true;
+    bola.vx = 0; bola.vy = 0; bola.y = alturaEspera();
+    clicksConsecutivos = 0;
+    if (comboCount) comboCount.textContent = 0;
+    const volver = { texto: 'Volver al menú', clase: 'button-volver', fn: () => { cerrarDialogo(); regresarAlMenu(); } };
+    if (ganado) {
+        const primera = !historiaProgreso.completados.includes(c.id);
+        if (primera) {
+            historiaProgreso.completados.push(c.id);
+            nets += c.recompensa;
+            localStorage.setItem('historiaProgreso', JSON.stringify(historiaProgreso));
+        }
+        guardarProgreso();
+        const sig = CAPITULOS[indice + 1];
+        mostrarDialogo({
+            acto: c.jefe ? '¡Jefe derrotado!' : '¡Capítulo completado!',
+            titulo: c.titulo,
+            parrafos: c.victoria,
+            objetivo: primera ? `🪙 Recompensa: +${c.recompensa} Nets` : 'Ya habías cobrado la recompensa de este capítulo.',
+            botones: [sig ? { texto: 'Siguiente capítulo', fn: () => { cerrarDialogo(); elegirCapitulo(indice + 1); } } : null, volver]
+        });
+    } else {
+        mostrarDialogo({
+            acto: 'Capítulo fallido',
+            titulo: c.titulo,
+            parrafos: [motivo === 'tiempo' ? 'Se acabó el tiempo. Rebotia sigue esperando: inténtalo otra vez.' : 'Te quedaste sin vidas. Respira hondo y vuelve a intentarlo.'],
+            objetivo: `🎯 ${textoObjetivo(c)}`,
+            botones: [{ texto: 'Reintentar', fn: () => comenzarCapitulo(c) }, volver]
+        });
+    }
+}
+
+function historiaAlCaer() {
+    if (!historia.activa || historia.terminado) return;
+    historia.vivo = 0;
+    historia.vidas--;
+    if (historia.vidas <= 0) { terminarCapitulo(false, 'vidas'); return; }
+    if (mensaje) {
+        mensaje.textContent = `💔 Perdiste una vida (te quedan ${historia.vidas}). Clic en la bola para seguir`;
+        mensaje.style.color = "#ff6b81";
+    }
+}
+
+function actualizarHistoria() {
+    const ahora = performance.now();
+    const dt = Math.min(0.1, (ahora - historiaUltimoFrame) / 1000);
+    historiaUltimoFrame = ahora;
+    historiaDt = dt;
+    if (!historia.activa || historia.terminado || pantallaActual !== "juego") return;
+    if (!bolaEnEsperaSaque) {
+        historia.vivo += dt;
+        historia.total += dt;
+    }
+    const c = historia.cap;
+    const pr = progresoCapitulo();
+    if (pr > (historia.pUlt || 0)) historia.flash = 0.25;
+    historia.pUlt = pr;
+    historia.flash = Math.max(0, (historia.flash || 0) - dt);
+    if (pr >= c.obj.meta) terminarCapitulo(true);
+    else if (c.limite && historia.total >= c.limite) terminarCapitulo(false, 'tiempo');
+}
+
+function dibujarHistoria() {
+    if (!ctx || !historia.activa || historia.terminado || pantallaActual !== "juego") return;
+    const c = historia.cap, e = Math.min(escalaPantalla, 2), w = canvas.width;
+    const niebla = modH('niebla', 0);
+    if (niebla) {
+        const g = ctx.createRadialGradient(bola.x, bola.y, niebla * 0.5, bola.x, bola.y, niebla * 1.3);
+        g.addColorStop(0, 'rgba(5,5,12,0)'); g.addColorStop(1, 'rgba(5,5,12,0.96)');
+        ctx.fillStyle = g; ctx.fillRect(0, 0, w, canvas.height);
+    }
+    if (c.clima === 'lluvia') {
+        const r = estadoRayo(performance.now() / 1000);
+        if (r.on) { ctx.fillStyle = `rgba(255,255,255,${r.a * 0.35})`; ctx.fillRect(0, 0, w, canvas.height); }
+    }
+    const pad = 8 * e, ancho = w - pad * 2, alto = 54 * e, prog = progresoCapitulo(), meta = c.obj.meta;
+    ctx.save();
+    ctx.fillStyle = 'rgba(10,10,22,0.78)'; rectRedondo(ctx, pad, pad, ancho, alto, 10 * e); ctx.fill();
+    ctx.textAlign = 'left'; ctx.textBaseline = 'top'; ctx.fillStyle = '#ffffff';
+    ctx.font = `bold ${Math.round(13 * e)}px 'Segoe UI', Arial, sans-serif`;
+    ctx.fillText(`Cap. ${c.id}: ${c.titulo}`, pad + 10 * e, pad + 6 * e);
+    for (let i = 0; i < c.vidas; i++) {
+        ctx.beginPath(); ctx.arc(pad + ancho - 14 * e - i * 16 * e, pad + 14 * e, 5.5 * e, 0, PI2);
+        ctx.fillStyle = i < historia.vidas ? '#ff4757' : 'rgba(255,255,255,0.18)'; ctx.fill();
+    }
+    const nombres = { combo: 'Racha', clics: 'Clics', nets: 'Nets', tiempo: 'En el aire' };
+    let etiqueta = `${nombres[c.obj.tipo]} ${prog}/${meta}${c.obj.tipo === 'tiempo' ? ' s' : ''}`;
+    if (c.limite) etiqueta += `  ·  Tiempo ${Math.max(0, Math.ceil(c.limite - historia.total))} s`;
+    ctx.fillStyle = '#ffd700'; ctx.font = `${Math.round(12 * e)}px 'Segoe UI', Arial, sans-serif`;
+    ctx.fillText(etiqueta, pad + 10 * e, pad + 24 * e);
+    ctx.fillStyle = 'rgba(255,255,255,0.15)'; ctx.fillRect(pad + 10 * e, pad + 41 * e, ancho - 20 * e, 7 * e);
+    ctx.fillStyle = '#2ed573'; ctx.fillRect(pad + 10 * e, pad + 41 * e, (ancho - 20 * e) * Math.min(1, prog / meta), 7 * e);
+    if (c.jefe) {
+        const by = pad + alto + 6 * e, bh = 15 * e, vida = 1 - Math.min(1, prog / meta);
+        ctx.fillStyle = 'rgba(10,10,22,0.78)'; rectRedondo(ctx, pad, by, ancho, bh, 6 * e); ctx.fill();
+        const barra = ctx.createLinearGradient(pad, 0, pad + ancho, 0); barra.addColorStop(0, '#ff4757'); barra.addColorStop(1, '#ff9f43');
+        ctx.fillStyle = barra; ctx.fillRect(pad + 2 * e, by + 2 * e, (ancho - 4 * e) * vida, bh - 4 * e);
+        ctx.fillStyle = '#ffffff'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.font = `bold ${Math.round(10 * e)}px 'Segoe UI', Arial, sans-serif`;
+        ctx.fillText(c.jefe.nombre, pad + ancho / 2, by + bh / 2);
+    }
+    ctx.restore();
+}
+
+if (btnHistoria) btnHistoria.addEventListener('click', abrirHistoria);
+if (cerrarHistoria) cerrarHistoria.addEventListener('click', () => { modalHistoria.style.display = 'none'; });
+
 let errorLoopAvisado = false;
 function gameLoop() {
     try {
         actualizarFisicas();
         actualizarParticulas();
+        actualizarHistoria();
         dibujar();
+        dibujarHistoria();
     } catch (e) {
         if (!errorLoopAvisado) { console.error('Error en el bucle del juego:', e); errorLoopAvisado = true; }
     }
     requestAnimationFrame(gameLoop);
 }
 
+// Logros de "completar todo" se vuelven a comprobar: si se agregaron capítulos o skins, ya no cuentan
+function revalidarLogrosTotales() {
+    logrosCompletados = logrosCompletados.filter(id => {
+        const l = LOGROS.find(x => x.id === id);
+        const esTotal = id === 'histFin' || id === 'jefesTodos' || id === 'skinsTodas';
+        return !(esTotal && l && l.check && !l.check());
+    });
+}
+
+revalidarLogrosTotales();
 ajustarLienzo();
 guardarProgreso();
 gameLoop();

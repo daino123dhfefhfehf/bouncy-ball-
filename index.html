@@ -36,6 +36,7 @@
     <div id="mensaje">Haz 5 clics en la pelota para comenzar</div>
     
     <div id="botonesMenuContainer" class="botones-contenedor">
+        <button id="btnHistoria" class="btn-juego btn-historia-estilo">📖 Historia</button>
         <button id="btnTienda" class="btn-juego">🛒 Tienda</button>
         <button id="btnLogros" class="btn-juego btn-logros-estilo">🏆 Logros</button>
         <button id="btnReiniciar" class="btn-juego button-volver">🗑️ Reiniciar</button>
@@ -60,6 +61,27 @@
                     <span>¡No falles! Un clic fuera reinicia la racha.</span>
                 </button>
             </div>
+        </div>
+    </div>
+
+    <!-- VENTANA MODAL DEL MODO HISTORIA -->
+    <div id="modalHistoria" class="modal-tienda">
+        <div class="modal-contenido">
+            <span id="cerrarHistoria" class="cerrar-modal">&times;</span>
+            <h2 class="tienda-titulo">📖 Modo Historia</h2>
+            <p id="historiaSubtitulo" class="subtitulo-modal"></p>
+            <div id="capitulosGrid" class="skins-grid"></div>
+        </div>
+    </div>
+
+    <!-- VENTANA DE DIÁLOGO DE LA HISTORIA -->
+    <div id="modalDialogo" class="modal-tienda">
+        <div class="modal-contenido modal-dialogo">
+            <p id="dialogoActo" class="dialogo-acto"></p>
+            <h2 id="dialogoTitulo" class="tienda-titulo"></h2>
+            <div id="dialogoTexto" class="dialogo-texto"></div>
+            <div id="dialogoObjetivo" class="dialogo-objetivo"></div>
+            <div id="dialogoAcciones" class="dialogo-acciones"></div>
         </div>
     </div>
 

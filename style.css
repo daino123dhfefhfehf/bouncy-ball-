@@ -460,3 +460,66 @@ body.vertical canvas { aspect-ratio: 720 / 1180; }
         width: min(100%, calc((100dvh - 12px) * 1.7778));
     }
 }
+
+/* ===== Modo Historia ===== */
+.btn-historia-estilo {
+    background: linear-gradient(135deg, #1abc9c, #16a085);
+    box-shadow: 0 6px 20px rgba(26, 188, 156, 0.4);
+}
+
+.skin-card.bloqueado { opacity: 0.5; }
+.skin-card.bloqueado:hover { transform: none; background: rgba(255, 255, 255, 0.04); border-color: rgba(255, 255, 255, 0.08); }
+
+.modal-dialogo { max-width: 560px; text-align: center; max-height: 92vh; overflow-y: auto; }
+
+.dialogo-acto {
+    color: #1abc9c;
+    font-size: 0.8rem;
+    font-weight: 800;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    margin-bottom: 8px;
+}
+
+.dialogo-texto p {
+    color: #d8d8e6;
+    line-height: 1.6;
+    margin-bottom: 12px;
+    font-size: 1rem;
+}
+
+.dialogo-objetivo {
+    white-space: pre-line;
+    background: rgba(255, 255, 255, 0.06);
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    border-radius: 12px;
+    padding: 12px 14px;
+    color: #ffd700;
+    font-weight: 700;
+    line-height: 1.6;
+    margin: 6px 0 16px;
+}
+
+.dialogo-acciones {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 10px;
+}
+
+@media (max-width: 700px), (max-height: 520px) {
+    .dialogo-texto p { font-size: 0.9rem; margin-bottom: 8px; }
+    .dialogo-objetivo { padding: 9px 11px; font-size: 0.85rem; }
+}
+
+.acto-titulo {
+    grid-column: 1 / -1;
+    color: #1abc9c;
+    font-size: 0.85rem;
+    letter-spacing: 1.5px;
+    text-transform: uppercase;
+    text-align: left;
+    margin: 8px 0 -4px;
+    padding-bottom: 4px;
+    border-bottom: 1px solid rgba(26, 188, 156, 0.35);
+}
