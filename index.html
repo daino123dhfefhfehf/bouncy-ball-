@@ -11,6 +11,9 @@
     <!-- OVERLAY PARA TRANSICIONES -->
     <div id="transicionOverlay" class="transicion-overlay"></div>
 
+    <!-- AVISOS EMERGENTES -->
+    <div id="toast" class="toast" role="status" aria-live="polite"></div>
+
     <!-- CONTENEDOR DE CONTROLES SUPERIORES -->
     <div class="hud-superior">
         <button id="btnVolverMenu" class="btn-juego button-volver" style="display: none;">↩ Menú (Esc)</button>
@@ -19,10 +22,14 @@
         </div>
         <div class="hud-externo">
             <span id="dificultadBadge" class="badge-dificultad dif-media">MEDIA</span>
-            <span>🪙 <span id="netCount">0</span> NETS</span>
+            <span class="chip-nets">🪙 <span id="netCount">0</span> NETS</span>
             <button id="btnPantallaCompleta" class="btn-pantalla" type="button" title="Pantalla completa (F)" aria-label="Pantalla completa">
                 <svg class="icono-entrar" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5"/></svg>
                 <svg class="icono-salir" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 4v5H4M15 4v5h5M9 20v-5H4M15 20v-5h5"/></svg>
+            </button>
+            <button id="btnAudio" class="btn-pantalla btn-audio" type="button" title="Sonido (M)" aria-label="Ajustes de sonido">
+                <svg class="icono-sonido" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 9v6h4l5 4V5L8 9H4z"/><path d="M16.5 8.5a5 5 0 0 1 0 7M19 6a8.5 8.5 0 0 1 0 12"/></svg>
+                <svg class="icono-mudo" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 9v6h4l5 4V5L8 9H4z"/><path d="M17 9l5 6M22 9l-5 6"/></svg>
             </button>
         </div>
     </div>
@@ -30,16 +37,31 @@
     <!-- ÁREA DE JUEGO PRINCIPAL -->
     <div class="juego-contenedor">
         <canvas id="miCanvas"></canvas>
+
+        <!-- PORTADA DEL MENÚ DE INICIO (solo visible en el menú) -->
+        <div id="menuOverlay" class="menu-overlay">
+            <div class="menu-cabecera">
+                <span class="menu-eyebrow">✦ Reino de Rebotia ✦</span>
+                <h1 class="menu-titulo">JUEGO DE LA <span>BOLA</span></h1>
+                <p class="menu-lema">Mantén la bola en el aire. Cada clic cuenta.</p>
+            </div>
+            <div class="menu-stats">
+                <div class="stat-chip"><b id="statCombo">0</b><small>Mejor racha</small></div>
+                <div class="stat-chip"><b id="statSkins">1/1</b><small>Skins</small></div>
+                <div class="stat-chip"><b id="statLogros">0/0</b><small>Logros</small></div>
+                <div class="stat-chip"><b id="statHistoria">0/0</b><small>Historia</small></div>
+            </div>
+        </div>
     </div>
 
     <!-- MENSAJES Y ACCIONES INFERIORES -->
     <div id="mensaje">Haz 5 clics en la pelota para comenzar</div>
-    
+
     <div id="botonesMenuContainer" class="botones-contenedor">
-        <button id="btnHistoria" class="btn-juego btn-historia-estilo">📖 Historia</button>
-        <button id="btnTienda" class="btn-juego">🛒 Tienda</button>
-        <button id="btnLogros" class="btn-juego btn-logros-estilo">🏆 Logros</button>
-        <button id="btnReiniciar" class="btn-juego button-volver">🗑️ Reiniciar</button>
+        <button id="btnHistoria" class="btn-juego btn-menu btn-historia-estilo"><span class="ico">📖</span><span class="txt">Historia</span></button>
+        <button id="btnTienda" class="btn-juego btn-menu"><span class="ico">🛒</span><span class="txt">Tienda</span></button>
+        <button id="btnLogros" class="btn-juego btn-menu btn-logros-estilo"><span class="ico">🏆</span><span class="txt">Logros</span></button>
+        <button id="btnReiniciar" class="btn-juego btn-menu btn-peligro"><span class="ico">🗑️</span><span class="txt">Reiniciar</span></button>
     </div>
 
     <!-- VENTANA MODAL DE DIFICULTAD -->
@@ -49,27 +71,43 @@
             <p class="subtitulo-modal">Elige cómo quieres jugar antes de empezar:</p>
             <div class="dificultades-grid">
                 <button class="btn-dificultad btn-facil" data-dif="facil">
-                    🟢 FÁCIL
-                    <span>Hacer clic fuera de la bola no tiene consecuencias.</span>
+                    <i class="dif-ico">🟢</i>
+                    <strong>FÁCIL</strong>
+                    <em class="dif-desc">Hacer clic fuera de la bola no tiene consecuencias.</em>
                 </button>
                 <button class="btn-dificultad btn-media" data-dif="media">
-                    🟡 MEDIA
-                    <span>La bola va un poco más rápida.</span>
+                    <i class="dif-ico">🟡</i>
+                    <strong>MEDIA</strong>
+                    <em class="dif-desc">La bola va un poco más rápida.</em>
                 </button>
                 <button class="btn-dificultad btn-dificil" data-dif="dificil">
-                    🔴 DIFÍCIL
-                    <span>¡No falles! Un clic fuera reinicia la racha.</span>
+                    <i class="dif-ico">🔴</i>
+                    <strong>DIFÍCIL</strong>
+                    <em class="dif-desc">¡No falles! Un clic fuera reinicia la racha.</em>
                 </button>
             </div>
+            <div class="dialogo-acciones dif-acciones"><button id="btnCancelarDif" class="btn-juego btn-ghost" type="button">Cancelar</button></div>
+        </div>
+    </div>
+
+    <!-- VENTANA MODAL DE AUDIO -->
+    <div id="modalAudio" class="modal-tienda">
+        <div class="modal-contenido modal-audio">
+            <button id="cerrarAudio" class="cerrar-modal" type="button" aria-label="Cerrar">&times;</button>
+            <h2 class="tienda-titulo">🔊 Sonido</h2>
+            <label class="audio-fila" for="rangoMusica"><span>🎵 Música</span><input id="rangoMusica" type="range" min="0" max="100" value="60"></label>
+            <label class="audio-fila" for="rangoSfx"><span>💥 Efectos</span><input id="rangoSfx" type="range" min="0" max="100" value="70"></label>
+            <div class="dialogo-acciones"><button id="btnSilenciar" class="btn-juego" type="button">🔊 Silenciar todo</button></div>
+            <p class="audio-nota">Atajo: tecla M para silenciar o activar el sonido.</p>
         </div>
     </div>
 
     <!-- VENTANA MODAL DEL MODO HISTORIA -->
     <div id="modalHistoria" class="modal-tienda">
-        <div class="modal-contenido">
-            <span id="cerrarHistoria" class="cerrar-modal">&times;</span>
+        <div class="modal-contenido modal-ancho">
+            <button id="cerrarHistoria" class="cerrar-modal" type="button" aria-label="Cerrar">&times;</button>
             <h2 class="tienda-titulo">📖 Modo Historia</h2>
-            <p id="historiaSubtitulo" class="subtitulo-modal"></p>
+            <div id="historiaSubtitulo" class="subtitulo-modal"></div>
             <div id="capitulosGrid" class="skins-grid"></div>
         </div>
     </div>
@@ -87,18 +125,20 @@
 
     <!-- VENTANA MODAL DE LA TIENDA -->
     <div id="modalTienda" class="modal-tienda">
-        <div class="modal-contenido">
-            <span id="cerrarTienda" class="cerrar-modal">&times;</span>
+        <div class="modal-contenido modal-ancho">
+            <button id="cerrarTienda" class="cerrar-modal" type="button" aria-label="Cerrar">&times;</button>
             <h2 class="tienda-titulo">🛒 Tienda de Skins</h2>
+            <p class="subtitulo-modal saldo-tienda">Tu saldo: <b>🪙 <span id="saldoTienda">0</span> Nets</b></p>
             <div id="skinsGrid" class="skins-grid"></div>
         </div>
     </div>
 
     <!-- VENTANA MODAL DE LOGROS -->
     <div id="modalLogros" class="modal-tienda">
-        <div class="modal-contenido">
-            <span id="cerrarLogros" class="cerrar-modal">&times;</span>
+        <div class="modal-contenido modal-ancho">
+            <button id="cerrarLogros" class="cerrar-modal" type="button" aria-label="Cerrar">&times;</button>
             <h2 class="tienda-titulo">🏆 Logros y Desafíos</h2>
+            <div id="logrosResumen" class="subtitulo-modal"></div>
             <div id="logrosGrid" class="skins-grid"></div>
         </div>
     </div>
