@@ -48,10 +48,6 @@ let dificultadActual = "facil";
 
 let colorFondoDinamico = "#14141f";
 let tiempoMenuFlotar = 0;
-let particulas = [];
-let ondasExplosion = [];
-let portalesVisuales = [];
-let fragmentosCristal = [];
 
 let cursorCanvasX = 640;
 let cursorCanvasY = 360;
@@ -138,7 +134,7 @@ const SKINS = {
     goku: { nombre: "Goku Saiyan 🔥", precio: 15000, c1: "#ffffff", c2: "#be2edd", c3: "#3a005c", part: 60, tipo: "goku" },
     espejo: { nombre: "Bola Espejo 🪩", precio: 18000, c1: "#ffffff", c2: "#dfe4ea", c3: "#747d8c", part: 210, tipo: "espejo" },
     chicle: { nombre: "Burbuja Chicle 🫧", precio: 12000, c1: "#ffffff", c2: "#ff9ff3", c3: "#f368e0", part: 300, tipo: "chicle" },
-    iman: { nombre: "Bola Imán 🧲", precio: 310000, c1: "#ffffff", c2: "#ff4757", c3: "#2f3542", part: 350, tipo: "iman" },
+    iman: { nombre: "Bola Imán 🧲", precio: 120000, c1: "#ffffff", c2: "#ff4757", c3: "#2f3542", part: 350, tipo: "iman" },
     antimateria: { nombre: "Antimateria 🌀", precio: 26000, c1: "#ffffff", c2: "#a55eea", c3: "#4b7bec", part: 270, tipo: "antimateria" },
     cuantica: { nombre: "Bola Cuántica ⚛️", precio: 28000, c1: "#ffffff", c2: "#00d2d3", c3: "#0984e3", part: 180, tipo: "cuantica" },
     hielocorrupto: { nombre: "Hielo Corrupto 🧊💀", precio: 30000, c1: "#e056fd", c2: "#686de0", c3: "#130f40", part: 280, tipo: "hielocorrupto" },
@@ -308,98 +304,36 @@ function verificarLogros() {
 // ==========================================
 // EFECTOS VISUALES
 // ==========================================
-function dispararEfectoExplosionHd(x, y) {
+function dispararEfectoExplosionHd(x, y, o) {
     sfx('explosion');
-    ondasExplosion.push({ x: x, y: y, radioActual: 10, radioMax: 120, opacidad: 1.0 });
-    for (let i = 0; i < 40; i++) {
-        let angulo = Math.random() * Math.PI * 2;
-        let velocidad = Math.random() * 12 + 2;
-        let esFuego = Math.random() > 0.3;
-        particulas.push({
-            x: x, y: y,
-            vx: Math.cos(angulo) * velocidad,
-            vy: Math.sin(angulo) * velocidad,
-            radio: Math.random() * 6 + 2,
-            color: esFuego ? (Math.random() > 0.5 ? "#ff3300" : "#ffcc00") : "#555555",
-            vida: 1.0, decaida: Math.random() * 0.03 + 0.02
-        });
-    }
+    FX.explosion(x, y, o);
 }
 
 function dispararQuiebreEspejo(x, y) {
     sfx('cristal');
-    for (let i = 0; i < 30; i++) {
-        let angulo = Math.random() * Math.PI * 2;
-        let velocidad = Math.random() * 10 + 3;
-        fragmentosCristal.push({
-            x: x, y: y,
-            vx: Math.cos(angulo) * velocidad,
-            vy: Math.sin(angulo) * velocidad,
-            ancho: Math.random() * 12 + 4,
-            alto: Math.random() * 8 + 3,
-            rotacion: Math.random() * Math.PI,
-            vRot: (Math.random() - 0.5) * 0.2,
-            vida: 1.0,
-            decaida: 0.025
-        });
-    }
+    FX.cristal(x, y);
 }
 
-function dispararPortalAzulVisual(x, y) {
+function dispararPortalAzulVisual(x, y, col) {
     sfx('portal');
-    portalesVisuales.push({ x: x, y: y, radio: 10, opacidad: 1.0 });
-    for (let i = 0; i < 25; i++) {
-        particulas.push({
-            x: x, y: y,
-            vx: (Math.random() - 0.5) * 12,
-            vy: (Math.random() - 0.5) * 12,
-            radio: Math.random() * 4 + 2,
-            color: "#00d2d3",
-            vida: 1.0, decaida: 0.04
-        });
-    }
+    FX.portal(x, y, col || '#00d2d3');
 }
 
+// Impacto de un clic: usa los colores de la skin equipada y crece con la racha
 function crearParticulas(x, y) {
     const skin = SKINS[skinEquipada] || SKINS.clasica;
-    let cantidad = skin.part || 15;
-    if (cantidad <= 0) return;
-    for (let i = 0; i < Math.min(cantidad, 25); i++) {
-        particulas.push({
-            x: x, y: y,
-            vx: (Math.random() - 0.5) * 10,
-            vy: (Math.random() - 0.5) * 10,
-            radio: Math.random() * 5 + 2,
-            color: skin.c2, vida: 1.0, decaida: 0.03
-        });
-    }
+    if (skin.part === 0) return;
+    FX.golpe(x, y, skin.c2, skin.c1, skin.c3, 1 + Math.min(1, clicksConsecutivos / 60) * 0.6);
 }
 
+let fxUltimo = performance.now();
 function actualizarParticulas() {
-    for (let i = particulas.length - 1; i >= 0; i--) {
-        let p = particulas[i];
-        p.x += p.vx; p.y += p.vy;
-        p.vida -= p.decaida || 0.03;
-        if (p.vida <= 0) particulas.splice(i, 1);
-    }
-    for (let i = ondasExplosion.length - 1; i >= 0; i--) {
-        let o = ondasExplosion[i];
-        o.radioActual += 6; o.opacidad -= 0.05;
-        if (o.opacidad <= 0) ondasExplosion.splice(i, 1);
-    }
-    for (let i = portalesVisuales.length - 1; i >= 0; i--) {
-        let pv = portalesVisuales[i];
-        pv.radio += 2; pv.opacidad -= 0.04;
-        if (pv.opacidad <= 0) portalesVisuales.splice(i, 1);
-    }
-    for (let i = fragmentosCristal.length - 1; i >= 0; i--) {
-        let fc = fragmentosCristal[i];
-        fc.x += fc.vx;
-        fc.y += fc.vy;
-        fc.vy += 0.4;
-        fc.rotacion += fc.vRot;
-        fc.vida -= fc.decaida;
-        if (fc.vida <= 0) fragmentosCristal.splice(i, 1);
+    const ahora = performance.now(), dt = Math.min(0.05, (ahora - fxUltimo) / 1000);
+    fxUltimo = ahora;
+    FX.ajustar(canvas.width, canvas.height);
+    FX.actualizar(dt);
+    if (!document.hidden) {
+        FX.aura(skinEquipada, { fase: GOKU_FASES[gokuIndiceFase], cooldown: tntEnCooldown, blindado: espejoBlindado }, bola.x, bola.y, bola.radio, bola.vx * 60, bola.vy * 60, dt);
     }
 
     // Resorte elástico: solo se usa con la skin chicle
@@ -597,7 +531,7 @@ function actualizarFisicas() {
             }, 5000);
         } else if (skinEquipada === 'fantasma' && performance.now() - fantasmaUltimo >= 8000) {
             fantasmaUltimo = performance.now();
-            sumarStat('reapariciones'); sfx('vacio');
+            sumarStat('reapariciones'); sfx('vacio'); FX.portal(bola.x, bola.y, '#cfd8ff');
             bola.y = canvas.height - 10 - bola.radio;
             bola.vy = -17;
             nets += 150;
@@ -610,7 +544,7 @@ function actualizarFisicas() {
             bola.vy = -16;
             nets += 100;
             guardarProgreso();
-            dispararPortalAzulVisual(bola.x, bola.y);
+            dispararPortalAzulVisual(bola.x, bola.y, '#a55eea');
             if (mensaje) { mensaje.textContent = `🌀 ¡El vacío absorbió la caída! +100 Nets (cargas: ${antiCargas}/2)`; mensaje.style.color = "#a55eea"; }
         } else if (skinEquipada === 'espejo' && !espejoBlindado) {
             bola.y = canvas.height - 10 - bola.radio;
@@ -820,6 +754,8 @@ function bonusMagma(x, y) {
 
 function alRebotarPared(x, y) {
     sfx('rebote');
+    const angR = x <= bola.radio + 2 ? 0 : (x >= canvas.width - bola.radio - 2 ? Math.PI : Math.PI / 2);
+    FX.rebote(angR === 0 ? 0 : (angR === Math.PI ? canvas.width : x), angR === Math.PI / 2 ? 0 : y, (SKINS[skinEquipada] || SKINS.clasica).c2, angR, bola.radio / 55);
     bonusMagma(x, y);
     if (skinEquipada === 'dragon' && dragonCarga < 5) {
         dragonCarga++;
@@ -838,7 +774,7 @@ function calcularGananciaClic() {
             if (n >= 10) { g *= 2; msg = "🔥 ¡INFERNO x2!"; col = "#ff7a00"; }
             break;
         case 'plasma':
-            if (n % 4 === 0) { g += 120; sumarStat('descargas'); sfx('zap'); dispararPortalAzulVisual(bola.x, bola.y); msg = "⚡ ¡Descarga eléctrica! +120 Nets"; col = "#00ffcc"; }
+            if (n % 4 === 0) { g += 120; sumarStat('descargas'); sfx('zap'); FX.descarga(bola.x, bola.y, bola.radio, '#00ffcc'); msg = "⚡ ¡Descarga eléctrica! +120 Nets"; col = "#00ffcc"; }
             break;
         case 'goku':
             g += 25 * gokuIndiceFase;
@@ -851,10 +787,10 @@ function calcularGananciaClic() {
             if (n % 10 === 0) { hieloCongelado = 100; sfx('hielo'); msg = "🧊 ¡Tiempo congelado! Haz clic para +150 Nets"; col = "#686de0"; }
             break;
         case 'meteoro':
-            if (bola.vy > 10) { g += 200; sumarStat('impactos'); dispararEfectoExplosionHd(bola.x, bola.y); msg = "☄️ ¡IMPACTO! +200 Nets"; col = "#ff6a00"; }
+            if (bola.vy > 10) { g += 200; sumarStat('impactos'); dispararEfectoExplosionHd(bola.x, bola.y, { col: '#ff6a00', esc: 1.1 }); msg = "☄️ ¡IMPACTO! +200 Nets"; col = "#ff6a00"; }
             break;
         case 'glitch':
-            if (Math.random() < 0.25) { g *= 4; sumarStat('criticos'); sfx('zap'); msg = "👾 ¡ERROR CRÍTICO! x4 Nets"; col = "#00ff66"; }
+            if (Math.random() < 0.25) { g *= 4; sumarStat('criticos'); sfx('zap'); FX.descarga(bola.x, bola.y, bola.radio, '#00ff66'); msg = "👾 ¡ERROR CRÍTICO! x4 Nets"; col = "#00ff66"; }
             break;
         case 'tiempo':
             g += 30;
@@ -866,10 +802,10 @@ function calcularGananciaClic() {
             g += 75;
             break;
         case 'dragon':
-            if (dragonCarga >= 5) { dragonCarga = 0; g += 1000; sumarStat('alientos'); dispararEfectoExplosionHd(bola.x, bola.y); msg = "🐉 ¡ALIENTO DE DRAGÓN! +1000 Nets"; col = "#ff4500"; }
+            if (dragonCarga >= 5) { dragonCarga = 0; g += 1000; sumarStat('alientos'); dispararEfectoExplosionHd(bola.x, bola.y, { col: '#ff4500', esc: 1.4 }); msg = "🐉 ¡ALIENTO DE DRAGÓN! +1000 Nets"; col = "#ff4500"; }
             break;
         case 'solar':
-            if (n % 15 === 0) { g += 1500; sumarStat('supernovas'); dispararEfectoExplosionHd(bola.x, bola.y); msg = "☀️ ¡SUPERNOVA! +1500 Nets"; col = "#ffb300"; }
+            if (n % 15 === 0) { g += 1500; sumarStat('supernovas'); dispararEfectoExplosionHd(bola.x, bola.y, { col: '#ffb300', esc: 1.9 }); msg = "☀️ ¡SUPERNOVA! +1500 Nets"; col = "#ffb300"; }
             break;
         case 'arcoiris': {
             const m = Math.min(10, 1 + Math.floor(n / 10));
@@ -882,11 +818,11 @@ function calcularGananciaClic() {
             break;
         case 'cosmos':
             g *= 3;
-            if (n % 20 === 0) { g += 5000; sumarStat('bigbangs'); dispararEfectoExplosionHd(bola.x, bola.y); msg = "🌌 ¡BIG BANG! +5000 Nets"; col = "#9b59ff"; }
+            if (n % 20 === 0) { g += 5000; sumarStat('bigbangs'); dispararEfectoExplosionHd(bola.x, bola.y, { col: '#9b59ff', esc: 2.3 }); msg = "🌌 ¡BIG BANG! +5000 Nets"; col = "#9b59ff"; }
             break;
         case 'estrella':
             g *= 2;
-            if (n % 5 === 0) { g += 250; sumarStat('deseos'); dispararEfectoExplosionHd(bola.x, bola.y); msg = "🌠 ¡Deseo cumplido! +250 Nets"; col = "#70a1ff"; }
+            if (n % 5 === 0) { g += 250; sumarStat('deseos'); dispararEfectoExplosionHd(bola.x, bola.y, { col: '#70a1ff', esc: 1.2 }); msg = "🌠 ¡Deseo cumplido! +250 Nets"; col = "#70a1ff"; }
             break;
     }
     if (msg && mensaje) { mensaje.textContent = msg; mensaje.style.color = col; }
@@ -949,7 +885,7 @@ function manejarAccion(clientX, clientY) {
             if (clicksConsecutivos % 5 === 0) {
                 gokuIndiceFase = (gokuIndiceFase + 1) % GOKU_FASES.length;
                 nets += 100;
-                dispararEfectoExplosionHd(bola.x, bola.y);
+                dispararEfectoExplosionHd(bola.x, bola.y, { col: GOKU_FASES[gokuIndiceFase].c2, esc: 1.5 });
                 if (mensaje) {
                     mensaje.textContent = `🔥 ¡EVOLUCIÓN! ${GOKU_FASES[gokuIndiceFase].nombre} (+100 Nets)`;
                     mensaje.style.color = "#ffd700";
@@ -1424,34 +1360,7 @@ function dibujar() {
     if (pantallaActual === "menu") dibujarFondoMenu();
     dibujarEscenaHistoria();
 
-    ondasExplosion.forEach(o => {
-        ctx.save();
-        ctx.beginPath();
-        ctx.arc(o.x, o.y, o.radioActual, 0, Math.PI * 2);
-        ctx.strokeStyle = `rgba(255, 100, 0, ${o.opacidad})`;
-        ctx.lineWidth = 4;
-        ctx.stroke();
-        ctx.restore();
-    });
-
-    portalesVisuales.forEach(pv => {
-        ctx.save();
-        ctx.beginPath();
-        ctx.arc(pv.x, pv.y, pv.radio, 0, Math.PI * 2);
-        ctx.strokeStyle = `rgba(0, 210, 211, ${pv.opacidad})`;
-        ctx.lineWidth = 5;
-        ctx.stroke();
-        ctx.restore();
-    });
-
-    fragmentosCristal.forEach(fc => {
-        ctx.save();
-        ctx.translate(fc.x, fc.y);
-        ctx.rotate(fc.rotacion);
-        ctx.fillStyle = `rgba(222, 228, 234, ${fc.vida})`;
-        ctx.fillRect(-fc.ancho / 2, -fc.alto / 2, fc.ancho, fc.alto);
-        ctx.restore();
-    });
+    FX.dibujar(ctx, 0);
 
     const sActiva = SKINS[skinEquipada] || SKINS.clasica;
     if (historia.activa && historia.invul > 0) ctx.globalAlpha = Math.floor(performance.now() / 80) % 2 ? 0.35 : 1;
@@ -1506,14 +1415,7 @@ function dibujar() {
         ctx.restore();
     }
 
-    particulas.forEach(p => {
-        ctx.beginPath();
-        ctx.arc(p.x, p.y, p.radio, 0, Math.PI * 2);
-        ctx.fillStyle = p.color;
-        ctx.globalAlpha = p.vida;
-        ctx.fill();
-        ctx.globalAlpha = 1.0;
-    });
+    FX.dibujar(ctx, 1);
 }
 
 // ==========================================
@@ -2364,35 +2266,8 @@ function estadoRayo(t) {
 function dibujarClima(c, w, h, t) {
     const clima = c.clima;
     if (!clima || clima === 'ninguno') return;
-    if (!historia.parts) historia.parts = Array.from({ length: 70 }, () => ({ x: Math.random(), y: Math.random(), v: 0.6 + Math.random() * 0.8, s: Math.random() }));
-    const viento = c.mod.viento || 0.02, vx = Math.sin(performance.now() / 1300) * (0.12 + viento * 7), dt = historiaDt, k = w / 720;
-    ctx.save(); ctx.lineCap = 'round';
-    historia.parts.forEach((p, i) => {
-        p.x += vx * p.v * dt * (clima === 'arena' ? 2.5 : (clima === 'lluvia' ? 0.5 : 1));
-        if (clima === 'hojas') p.y += 0.07 * p.v * dt;
-        else if (clima === 'lluvia') p.y += 1.1 * p.v * dt;
-        else if (clima === 'nieve') { p.y += 0.1 * p.v * dt; p.x += Math.sin(t + i) * 0.0008; }
-        else if (clima === 'ceniza') p.y -= 0.06 * p.v * dt;
-        p.x = ((p.x % 1) + 1) % 1; p.y = ((p.y % 1) + 1) % 1;
-        const X = p.x * w, Y = p.y * h, sg = vx < 0 ? -1 : 1;
-        if (clima === 'brisa') {
-            ctx.strokeStyle = 'rgba(255,255,255,0.28)'; ctx.lineWidth = 2 * k; ctx.beginPath();
-            ctx.moveTo(X, Y + Math.sin(t * 2 + i) * 8 * k); ctx.lineTo(X - sg * w * (0.04 + Math.abs(vx) * 0.15), Y + Math.sin(t * 2 + i + 0.6) * 8 * k); ctx.stroke();
-        } else if (clima === 'hojas') {
-            ctx.save(); ctx.translate(X, Y); ctx.rotate(t * 2 * p.v + i); ctx.fillStyle = p.s > 0.5 ? '#6bbf59' : '#d9a441';
-            ctx.beginPath(); ctx.ellipse(0, 0, 7 * k, 3.5 * k, 0, 0, PI2); ctx.fill(); ctx.restore();
-        } else if (clima === 'lluvia') {
-            ctx.strokeStyle = 'rgba(190,210,255,0.55)'; ctx.lineWidth = 1.6 * k; ctx.beginPath(); ctx.moveTo(X, Y); ctx.lineTo(X + vx * 60 * k, Y + 22 * k); ctx.stroke();
-        } else if (clima === 'nieve') {
-            circ(ctx, X, Y, (2.5 + 3 * p.s) * k, 'rgba(110,160,210,0.55)'); circ(ctx, X, Y, (1.8 + 2 * p.s) * k, '#ffffff');
-        } else if (clima === 'arena') {
-            ctx.strokeStyle = 'rgba(255,230,180,0.7)'; ctx.lineWidth = 2 * k; ctx.beginPath(); ctx.moveTo(X, Y); ctx.lineTo(X - sg * 14 * k, Y); ctx.stroke();
-        } else if (clima === 'ceniza') {
-            circ(ctx, X, Y, (1.5 + 2 * p.s) * k, p.s > 0.6 ? 'rgba(255,140,40,0.85)' : 'rgba(180,170,170,0.6)');
-        }
-    });
-    if (clima === 'arena') { ctx.fillStyle = 'rgba(230,170,90,0.14)'; ctx.fillRect(0, 0, w, h); }
-    ctx.restore();
+    const viento = c.mod.viento || 0.02, vx = Math.sin(performance.now() / 1300) * (0.12 + viento * 7);
+    FX.clima(ctx, clima, w, h, t, historiaDt, vx, w / 720);
 }
 
 function dibujarJefe(c, w, h, t) {
@@ -3118,7 +2993,7 @@ function lanzarAtaque(a, w, h, t) {
     }
     if (a.k === 'bala' || a.k === 'abanico' || a.k === 'radial') {
         sfx('quemadura');
-        for (let i = 0; i < 14; i++) particulas.push({ x: origen.x, y: origen.y, vx: (Math.random() - 0.5) * 8, vy: (Math.random() - 0.5) * 8, radio: Math.random() * 4 + 2, color: a.col || '#ffffff', vida: 1, decaida: 0.05 });
+        FX.golpe(origen.x, origen.y, a.col || '#ffffff', '#ffffff', '#000000', 1.2);
     }
     if (!historia.avisado && mensaje) {
         historia.avisado = true;
@@ -3134,7 +3009,7 @@ function golpeProyectil(p) {
     historia.vidas--;
     clicksConsecutivos = 0;
     if (comboCount) comboCount.textContent = 0;
-    dispararEfectoExplosionHd(bola.x, bola.y);
+    dispararEfectoExplosionHd(bola.x, bola.y, { col: '#ff4757', esc: 0.9 });
     sfx('golpeJefe');
     bola.vy = -9;
     bola.vx = Math.max(-9, Math.min(9, (bola.x - p.x) * 0.06)) || 6;
@@ -3162,6 +3037,10 @@ function actualizarProyectiles(dt, w, h, t) {
 
     if (!historia.sigAtq) historia.sigAtq = lista[Math.floor(Math.random() * lista.length)];
     historia.proxAtq -= dt;
+    if (c.jefe && historia.sigAtq && ['bala', 'abanico', 'radial'].includes(historia.sigAtq.k) && historia.proxAtq < 0.6) {
+        const jf = posJefe(w, h, t);
+        FX.carga(jf.x, jf.y, jf.R, historia.sigAtq.col || '#ffffff', 1 - Math.max(0, historia.proxAtq) / 0.6);
+    }
     if (historia.proxAtq <= 0) {
         lanzarAtaque(historia.sigAtq, w, h, t);
         historia.sigAtq = null;
@@ -3175,7 +3054,7 @@ function actualizarProyectiles(dt, w, h, t) {
         let golpe = false, fuera = false;
         if (p.k === 'bala') {
             p.x += p.vx * dt; p.y += p.vy * dt;
-            if (p.spr === 'lava' || p.spr === 'electro') particulas.push({ x: p.x, y: p.y, vx: (Math.random() - 0.5) * 2, vy: (Math.random() - 0.5) * 2, radio: Math.random() * 3 + 1.5, color: p.spr === 'lava' ? '#ff8a2a' : '#67e8f9', vida: 1, decaida: 0.08 });
+            FX.proyectil(p, dt);
             const d = Math.hypot(bola.x - p.x, bola.y - p.y);
             if (d < rb * 3) p.cerca = true;
             golpe = d < rb * 0.85 + p.r * 0.85;
@@ -3189,12 +3068,12 @@ function actualizarProyectiles(dt, w, h, t) {
             if (p.y + p.r * 1.4 >= piso) {
                 fuera = true;
                 sfx('rebote');
-                for (let k = 0; k < 8; k++) particulas.push({ x: p.x, y: piso, vx: (Math.random() - 0.5) * 8, vy: -Math.random() * 7, radio: Math.random() * 4 + 2, color: p.col || '#aaaaaa', vida: 1, decaida: 0.05 });
+                FX.impactoSuelo(p.x, piso, p.col || '#aaaaaa', p.r / 16);
             }
         } else if (p.k === 'rayo') {
             if (p.edad < p.aviso) continue;
             const ph = p.edad - p.aviso;
-            if (!p.sono) { p.sono = true; sfx('zap'); }
+            if (!p.sono) { p.sono = true; sfx('zap'); FX.rayoSuelo(p.x, piso, p.col, u); }
             if (ph < 0.28) {
                 const dx = Math.abs(bola.x - p.x);
                 if (dx < rb * 2.5) p.cerca = true;
@@ -3203,7 +3082,7 @@ function actualizarProyectiles(dt, w, h, t) {
         } else if (p.k === 'estal') {
             if (p.edad < p.aviso) continue;
             const ph = p.edad - p.aviso;
-            if (!p.sono) { p.sono = true; sfx('rebote'); for (let k = 0; k < 10; k++) particulas.push({ x: p.x, y: piso, vx: (Math.random() - 0.5) * 9, vy: -Math.random() * 8, radio: Math.random() * 4 + 2, color: p.col, vida: 1, decaida: 0.05 }); }
+            if (!p.sono) { p.sono = true; sfx('rebote'); FX.impactoSuelo(p.x, piso, p.col, 1.3); }
             const fr = ph < 0.12 ? ph / 0.12 : (ph < 0.67 ? 1 : Math.max(0, 1 - (ph - 0.67) / 0.25));
             p.alt = fr * 190 * u;
             const dx = Math.abs(bola.x - p.x);
@@ -3471,7 +3350,9 @@ function revalidarLogrosTotales() {
         return !(esTotal && l && l.check && !l.check());
     });
 }
+
 revalidarLogrosTotales();
+if (canvas) FX.iniciar(canvas);
 ajustarLienzo();
 guardarProgreso();
 gameLoop();
